@@ -1,0 +1,18 @@
+{% extends "emails/base_email.html" %}
+
+{% block title %}Welcome to Learnigy{% endblock %}
+
+{% block content %}
+<h1>Welcome to Learnigy, {{ first_name }}!</h1>
+<p>Your account is ready. You are now part of a community built to help you learn with confidence and keep making progress.</p>
+<p>Explore courses, track your progress, and turn your goals into your next achievement.</p>
+
+<div class="button-wrap">
+  <a href="{{ login_url }}" class="button">Start learning</a>
+</div>
+
+<div class="link-box">
+  <p class="link-label">Having trouble with the button?</p>
+  <a href="{{ login_url }}" class="link">{{ login_url }}</a>
+</div>
+{% endblock %}

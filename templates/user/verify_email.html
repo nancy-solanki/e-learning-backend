@@ -1,0 +1,19 @@
+{% extends "emails/base_email.html" %}
+
+{% block title %}Confirm your Learnigy email{% endblock %}
+
+{% block content %}
+<h1>Confirm your email address</h1>
+<p>Welcome to Learnigy! Confirm your email address to activate your account and start learning.</p>
+
+<div class="button-wrap">
+  <a href="{{ link }}" class="button">Confirm email address</a>
+</div>
+
+<div class="link-box">
+  <p class="link-label">If the button does not work</p>
+  <a href="{{ link }}" class="link">{{ link }}</a>
+</div>
+
+<p class="note">If you did not create a Learnigy account, you can safely ignore this email.</p>
+{% endblock %}
