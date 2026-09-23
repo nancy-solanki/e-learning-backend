@@ -2,6 +2,8 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import BankViewSet
 
+app_name = "bank"
+
 router = DefaultRouter()
 router.register(r'', BankViewSet, basename='bank')
 
