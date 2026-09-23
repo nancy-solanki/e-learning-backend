@@ -5,5 +5,6 @@ urlpatterns = [
     path("users/", include("apps.users.urls", namespace="user")),
     path("category/", include("apps.category.urls", namespace="category")),
     path("bank/", include("apps.bank.urls", namespace="bank")),
-    path("localization/", include("apps.localization.urls", namespace="localization"))
+    path("localization/", include("apps.localization.urls", namespace="localization")),
+    path("wallet/", include("apps.wallet.urls", namespace="wallet")),
 ]

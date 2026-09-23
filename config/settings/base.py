@@ -94,6 +94,7 @@ LOCAL_APPS = [
     "apps.category",
     "apps.bank",
     "apps.localization",
+    "apps.wallet",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
