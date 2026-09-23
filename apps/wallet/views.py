@@ -1,9 +1,10 @@
-from rest_framework.permissions import BasePermission, IsAuthenticated
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import viewsets
+from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
+
 from .serializers import WalletSerializer
 from .service import WalletService
-from drf_spectacular.utils import extend_schema, extend_schema_view
 
 # Create your views here.
 
@@ -22,17 +23,16 @@ class IsInstructorOrAdmin(BasePermission):
 @extend_schema_view(
     list=extend_schema(
         tags=["Wallet"],
-        description="Retrieve the wallet for the authenticated user (instructor)."
+        description="Retrieve the wallet for the authenticated user (instructor).",
     ),
     retrieve=extend_schema(
-        tags=["Wallet"],
-        description="Retrieve a specific wallet by ID."
+        tags=["Wallet"], description="Retrieve a specific wallet by ID."
     ),
 )
 class WalletViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsInstructorOrAdmin]
     serializer_class = WalletSerializer
-    http_method_names = ['get']
+    http_method_names = ["get"]
 
     def get_queryset(self):
         return WalletService.get_wallet_queryset_by_user(self.request.user)

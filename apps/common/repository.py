@@ -17,12 +17,7 @@ class FileRepository:
 
     @staticmethod
     def create_file(url, name, file_type, size):
-        return Files.objects.create(
-            url=url,
-            name=name,
-            type=file_type,
-            size=size
-        )
+        return Files.objects.create(url=url, name=name, type=file_type, size=size)
 
     @staticmethod
     def delete_file(file_id):

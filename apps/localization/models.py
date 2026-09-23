@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils import timezone
+
 from apps.core.models import BaseModel
 
 
@@ -15,13 +16,13 @@ class Localization(BaseModel):
     def soft_delete(self):
         if not self.deleted_at:
             self.deleted_at = timezone.now()
-            self.save(update_fields=['deleted_at'])
+            self.save(update_fields=["deleted_at"])
         return self
 
     def restore(self):
         if self.deleted_at:
             self.deleted_at = None
-            self.save(update_fields=['deleted_at'])
+            self.save(update_fields=["deleted_at"])
         return self
 
     def toggle_deleted(self):

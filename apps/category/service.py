@@ -1,4 +1,5 @@
 from apps.common.service import FileService
+
 from .repository import CategoryRepository
 
 
@@ -21,13 +22,13 @@ class CategoryService:
     def upload_thumbnail(thumbnail):
         file_obj = CategoryService._resolve_thumbnail(thumbnail)
         if not file_obj:
-            raise ValueError('Thumbnail is required.')
-        return FileService.upload_file_to_cloud(file_obj, 'category')
+            raise ValueError("Thumbnail is required.")
+        return FileService.upload_file_to_cloud(file_obj, "category")
 
     @staticmethod
     def update_category(category, data, thumbnail=None):
         if thumbnail is not None:
-            data['thumbnail'] = CategoryService.upload_thumbnail(thumbnail)
+            data["thumbnail"] = CategoryService.upload_thumbnail(thumbnail)
         return CategoryRepository.update_category(category, **data)
 
     @staticmethod

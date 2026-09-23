@@ -16,7 +16,9 @@ class WalletRepository:
 
     @staticmethod
     def get_site_wallet():
-        return Wallet.objects.filter(is_site_wallet=True, deleted_at__isnull=True).first()
+        return Wallet.objects.filter(
+            is_site_wallet=True, deleted_at__isnull=True
+        ).first()
 
     @staticmethod
     def create_wallet(**kwargs):

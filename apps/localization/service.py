@@ -8,7 +8,7 @@ class LocalizationService:
 
     @staticmethod
     def get_queryset_for_user(user):
-        if user.is_superuser or getattr(user, 'is_admin', False):
+        if user.is_superuser or getattr(user, "is_admin", False):
             return LocalizationRepository.get_all_localizations()
         return LocalizationRepository.get_active_localizations()
 

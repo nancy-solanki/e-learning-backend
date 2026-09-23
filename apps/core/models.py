@@ -26,7 +26,9 @@ class TimestampModel(CoreModel):
     """
 
     created_at = models.DateTimeField(_("created at"), blank=True, null=True)
-    updated_at = models.DateTimeField(_("updated at"), blank=True, null=True, auto_now=True)
+    updated_at = models.DateTimeField(
+        _("updated at"), blank=True, null=True, auto_now=True
+    )
 
     class Meta:
         abstract = True
@@ -64,7 +66,9 @@ class UUIDModel(CoreModel):
     UUID Model supporting UUID fields.
     """
 
-    id = models.UUIDField(_("primary key"), primary_key=True, default=uuid.uuid4, editable=False)
+    id = models.UUIDField(
+        _("primary key"), primary_key=True, default=uuid.uuid4, editable=False
+    )
 
     class Meta:
         abstract = True

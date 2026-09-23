@@ -30,11 +30,11 @@ class LocalizationRepository:
     @staticmethod
     def soft_delete_localization(localization):
         localization.deleted_at = timezone.now()
-        localization.save(update_fields=['deleted_at'])
+        localization.save(update_fields=["deleted_at"])
         return localization
 
     @staticmethod
     def restore_localization(localization):
         localization.deleted_at = None
-        localization.save(update_fields=['deleted_at'])
+        localization.save(update_fields=["deleted_at"])
         return localization

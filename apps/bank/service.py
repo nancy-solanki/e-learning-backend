@@ -1,5 +1,7 @@
-from .repository import BankRepository
 from rest_framework.exceptions import ValidationError
+
+from .repository import BankRepository
+
 
 class BankService:
     """
@@ -36,5 +38,5 @@ class BankService:
 
         action = bank.toggle_deleted()
         if action == "activated" or not bank.is_deleted:
-             return "Activated successfully"
+            return "Activated successfully"
         return "Deleted successfully"

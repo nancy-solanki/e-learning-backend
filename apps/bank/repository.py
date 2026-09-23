@@ -1,5 +1,6 @@
 from .models import Bank
 
+
 class BankRepository:
     """
     Repository to handle database interactions relating to the Bank model.
@@ -15,14 +16,16 @@ class BankRepository:
 
     @staticmethod
     def get_default_bank(user):
-        return Bank.objects.filter(user=user, default=True, deleted_at__isnull=True).first()
+        return Bank.objects.filter(
+            user=user, default=True, deleted_at__isnull=True
+        ).first()
 
     @staticmethod
     def create_bank(user, **validated_data):
         # If this is the first bank for the user, set it as default
         has_bank = Bank.objects.filter(user=user).exists()
         default = not has_bank
-        
+
         bank = Bank.objects.create(user=user, default=default, **validated_data)
         return bank
 

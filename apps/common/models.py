@@ -12,7 +12,7 @@ class Files(BaseModel):
     size = models.PositiveIntegerField(blank=True, null=True)
 
     class Meta:
-        db_table = 'file'
-        verbose_name = 'file'
-        verbose_name_plural = 'files'
+        db_table = "file"
+        verbose_name = "file"
+        verbose_name_plural = "files"
         ordering = ["-created_at"]

@@ -8,14 +8,15 @@ class CategorySerializer(serializers.ModelSerializer):
         """
         Metaclass for the CategorySerializer
         """
+
         model = Category
-        exclude = ('user', )
+        exclude = ("user",)
 
     def validate(self, data):
         """
         Validate the category data
         """
-        categories = Category.objects.filter(title__icontains=data['title'])
+        categories = Category.objects.filter(title__icontains=data["title"])
         if self.instance:
             categories = categories.exclude(pk=self.instance.pk)
         if categories.exists():
@@ -24,9 +25,10 @@ class CategorySerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         from apps.common.serializers import FileSerializer
+
         data = super().to_representation(instance)
-        if hasattr(instance, 'thumbnail') and instance.thumbnail:
-            data['thumbnail'] = FileSerializer(instance.thumbnail).data
+        if hasattr(instance, "thumbnail") and instance.thumbnail:
+            data["thumbnail"] = FileSerializer(instance.thumbnail).data
         else:
-            data['thumbnail'] = None
+            data["thumbnail"] = None
         return data
