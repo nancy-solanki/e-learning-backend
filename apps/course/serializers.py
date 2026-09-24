@@ -1,9 +1,9 @@
-from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from rest_framework import serializers
 
 from apps.category.models import Category
-from apps.common.models import Files
 from apps.common.serializers import FileSerializer
+
 from .models import Course, Tag
 
 User = get_user_model()
@@ -12,20 +12,22 @@ User = get_user_model()
 class TagSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tag
-        fields = ['id', 'name', 'slug']
+        fields = ["id", "name", "slug"]
 
 
 class CategoryMinimalSerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
-        fields = ['id', 'title', 'slug']
+        fields = ["id", "title", "slug"]
 
 
 class InstructorSerializer(serializers.ModelSerializer):
     avatar = FileSerializer(read_only=True)
+
     class Meta:
         model = User
-        fields = ['id', 'first_name', 'last_name', 'username', 'avatar']
+        fields = ["id", "first_name", "last_name", "username", "avatar"]
+
 
 class CourseMinimalSerializer(serializers.ModelSerializer):
     instructor = InstructorSerializer(read_only=True)
@@ -34,10 +36,16 @@ class CourseMinimalSerializer(serializers.ModelSerializer):
     class Meta:
         model = Course
         fields = [
-            'id', 'title', 'slug', 'thumbnail', 'instructor', 
-            'is_free', 'price', 'status', 'total_hours'
+            "id",
+            "title",
+            "slug",
+            "thumbnail",
+            "instructor",
+            "is_free",
+            "price",
+            "status",
+            "total_hours",
         ]
-
 
 
 class FilteredCourseSerializer(serializers.ModelSerializer):
@@ -53,11 +61,26 @@ class FilteredCourseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Course
         fields = [
-            'id', 'title', 'slug', 'short_description', 'long_description',
-            'is_free', 'price', 'status', 'is_best_seller', 'learn_description_points',
-            'requirements', 'total_hours', 'total_articles', 'thumbnail', 'tags',
-            'instructor', 'categories', 'student_count',
-            'created_at', 'updated_at'
+            "id",
+            "title",
+            "slug",
+            "short_description",
+            "long_description",
+            "is_free",
+            "price",
+            "status",
+            "is_best_seller",
+            "learn_description_points",
+            "requirements",
+            "total_hours",
+            "total_articles",
+            "thumbnail",
+            "tags",
+            "instructor",
+            "categories",
+            "student_count",
+            "created_at",
+            "updated_at",
         ]
 
 
@@ -66,7 +89,7 @@ class CourseSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Course
-        fields = '__all__'
+        fields = "__all__"
 
     def get_student_count(self, obj):
         return obj.enroll.count()

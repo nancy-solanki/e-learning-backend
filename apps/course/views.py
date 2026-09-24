@@ -1,15 +1,15 @@
+from django.http import Http404
+from drf_spectacular.utils import extend_schema, extend_schema_view
+from rest_framework import filters, status, viewsets
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework.views import APIView
+
+from apps.category.models import Category
+from apps.core.permission import IsInstructorOrAdmin, IsSuperuserOrReadOnly
+
 from .serializers import CourseSerializer, FilteredCourseSerializer
 from .service import CourseService
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework import viewsets
-from django.http import Http404
-from rest_framework.views import APIView
-from apps.category.models import Category
-from rest_framework import filters
-from apps.core.permission import IsInstructorOrAdmin, IsSuperuserOrReadOnly
-from drf_spectacular.utils import extend_schema_view, extend_schema
 
 # Create your views here.
 
@@ -17,21 +17,28 @@ from drf_spectacular.utils import extend_schema_view, extend_schema
 @extend_schema_view(
     list=extend_schema(
         tags=["Course"],
-        description="List all courses. Superusers see all, other authenticated users see only active ones."
+        description=(
+            "List all courses. Superusers see all, other authenticated users "
+            "see only active ones."
+        ),
     ),
     retrieve=extend_schema(
-        tags=["Course"],
-        description="Retrieve a specific course by ID."
+        tags=["Course"], description="Retrieve a specific course by ID."
     ),
 )
 class CourseViewSet(viewsets.ModelViewSet):
-    permission_classes = (IsSuperuserOrReadOnly, )
+    permission_classes = (IsSuperuserOrReadOnly,)
     serializer_class = FilteredCourseSerializer
-    search_fields = ['title', 'short_description',
-                     'long_description', 'requirements', 'learn_description_points']
+    search_fields = [
+        "title",
+        "short_description",
+        "long_description",
+        "requirements",
+        "learn_description_points",
+    ]
     filter_backends = (filters.SearchFilter,)
-    lookup_field = 'slug'
-    http_method_names = ['get', 'head', 'options']
+    lookup_field = "slug"
+    http_method_names = ["get", "head", "options"]
 
     def get_queryset(self):
         return CourseService.get_public_queryset()
@@ -50,6 +57,7 @@ class CourseViewSet(viewsets.ModelViewSet):
 )
 class CourseByCategoryView(APIView):
     permission_classes = [AllowAny]
+
     def get_object(self, slug):
         category = Category.objects.filter(deleted_at__isnull=True, slug=slug).first()
         if not category:
@@ -59,34 +67,35 @@ class CourseByCategoryView(APIView):
     def get(self, request, slug, format=None):
         course = self.get_object(slug)
         serializer = FilteredCourseSerializer(
-            course, many=True, context={"request": request})
+            course, many=True, context={"request": request}
+        )
         return Response(serializer.data)
 
 
 @extend_schema_view(
     list=extend_schema(
         tags=["Course"],
-        description="List all courses. Superusers see all, other authenticated users see only active ones."
+        description=(
+            "List all courses. Superusers see all, other authenticated users "
+            "see only active ones."
+        ),
     ),
     retrieve=extend_schema(
-        tags=["Course"],
-        description="Retrieve a specific course by ID."
+        tags=["Course"], description="Retrieve a specific course by ID."
     ),
     create=extend_schema(
-        tags=["Course"],
-        description="Create a new course. Only superusers can create."
+        tags=["Course"], description="Create a new course. Only superusers can create."
     ),
     update=extend_schema(
-        tags=["Course"],
-        description="Update a course. Only superusers can update."
+        tags=["Course"], description="Update a course. Only superusers can update."
     ),
     partial_update=extend_schema(
         tags=["Course"],
-        description="Partially update a course. Only superusers can update."
+        description="Partially update a course. Only superusers can update.",
     ),
     destroy=extend_schema(
         tags=["Course"],
-        description="Delete or restore a course. Toggles the deleted status."
+        description="Delete or restore a course. Toggles the deleted status.",
     ),
 )
 class AllCourseViewSet(viewsets.ModelViewSet):
@@ -104,6 +113,8 @@ class AllCourseViewSet(viewsets.ModelViewSet):
         CourseService.toggle_course_status(instance)
         if instance.is_deleted:
             return Response(
-                {"message": "Deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
+                {"message": "Deleted successfully"}, status=status.HTTP_204_NO_CONTENT
+            )
         return Response(
-            {"message": "Activated successfully"}, status=status.HTTP_200_OK)
+            {"message": "Activated successfully"}, status=status.HTTP_200_OK
+        )

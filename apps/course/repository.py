@@ -1,6 +1,3 @@
-from django.db.models import Avg, Count, FloatField
-from django.db.models.functions import Coalesce
-
 from .models import Course
 
 
@@ -12,18 +9,13 @@ class CourseRepository:
     @staticmethod
     def annotate_course_queryset(queryset):
         return queryset
-        # return queryset.annotate(
-        #     # average_rating=Coalesce(Avg("rating__rating"), 0, output_field=FloatField()),  # TODO: Add rating relation
-        #     # lessons=Count("lecture", distinct=True),  # TODO: Add lecture relation
-        #     # students=Count("enroll", distinct=True),  # TODO: Add enroll relation
-        # )
 
     @staticmethod
     def get_published_courses():
         queryset = Course.objects.filter(
             deleted_at__isnull=True,
             status="published",
-            instructor__status="AC"
+            instructor__status="AC",
         ).order_by("-created_at")
         return CourseRepository.annotate_course_queryset(queryset)
 
@@ -33,7 +25,7 @@ class CourseRepository:
             deleted_at__isnull=True,
             status="published",
             instructor__status="AC",
-            categories=category
+            categories=category,
         ).order_by("-created_at")
         return CourseRepository.annotate_course_queryset(queryset)
 

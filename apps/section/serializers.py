@@ -1,4 +1,5 @@
 from rest_framework import serializers
+
 # TODO: Uncomment when lecture app is created
 # from lecture.serializers import LectureSerializer
 # from lecture.models import Lecture
@@ -6,7 +7,7 @@ from .models import Section
 
 
 class SectionSerializer(serializers.ModelSerializer):
-    instructor = serializers.ReadOnlyField(source='instructor.username')
+    instructor = serializers.ReadOnlyField(source="instructor.username")
     # TODO: Uncomment when lecture app is created
     # lecture = LectureSerializer(read_only=True, many=True)
     course_title = serializers.SerializerMethodField("get_course_title")
@@ -16,11 +17,11 @@ class SectionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Section
-        fields = '__all__'
+        fields = "__all__"
 
 
 class FilteredSectionSerializer(serializers.ModelSerializer):
-    instructor = serializers.ReadOnlyField(source='instructor.username')
+    instructor = serializers.ReadOnlyField(source="instructor.username")
     # TODO: Uncomment when lecture app is created
     # lecture = serializers.SerializerMethodField('published_lecture')
 
@@ -31,4 +32,4 @@ class FilteredSectionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Section
-        fields = '__all__'
+        fields = "__all__"

@@ -9,4 +9,5 @@ urlpatterns = [
     path("wallet/", include("apps.wallet.urls", namespace="wallet")),
     path("course/", include("apps.course.urls", namespace="course")),
     path("section/", include("apps.section.urls", namespace="section")),
+    path("lecture/", include("apps.lecture.urls", namespace="lecture")),
 ]

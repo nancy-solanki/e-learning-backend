@@ -8,6 +8,13 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.test
+      SECRET_KEY: django-insecure-ci-secret-key
+      CLOUDINARY_CLOUD_NAME: ci
+      CLOUDINARY_API_KEY: ci
+      CLOUDINARY_API_SECRET: ci
+
     services:
       postgres:
         image: postgres:16
@@ -39,9 +46,8 @@ jobs:
         run: uv sync --dev
 
       - name: Run migrations
-        run: uv run python manage.py migrate
+        run: uv run python manage.py migrate --noinput
         env:
-          SECRET_KEY: django-insecure-ci-secret-key
           DB_NAME: test_db
           DB_USER: postgres
           DB_PASSWORD: postgres
@@ -53,7 +59,6 @@ jobs:
           uv run coverage run -m pytest
           uv run coverage report --fail-under=80
         env:
-          SECRET_KEY: django-insecure-ci-secret-key
           DB_NAME: test_db
           DB_USER: postgres
           DB_PASSWORD: postgres
