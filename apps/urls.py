@@ -7,4 +7,5 @@ urlpatterns = [
     path("bank/", include("apps.bank.urls", namespace="bank")),
     path("localization/", include("apps.localization.urls", namespace="localization")),
     path("wallet/", include("apps.wallet.urls", namespace="wallet")),
+    path("course/", include("apps.course.urls", namespace="course")),
 ]
