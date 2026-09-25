@@ -14,4 +14,5 @@ urlpatterns = [
     path("enroll/", include("apps.enroll.urls", namespace="enroll")),
     path("order/", include("apps.order.urls", namespace="order")),
     path("transaction/", include("apps.transaction.urls", namespace="transaction")),
+    path("rating/", include("apps.rating.urls", namespace="rating")),
 ]
