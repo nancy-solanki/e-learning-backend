@@ -184,10 +184,8 @@ class TestUserActivateAccountSerializer:
         )
         assert not s.is_valid()
 
-    def test_deleted_user_uid_raises_validation_error(self):
-        user = self._make_pending_user()
-        uid = _uid(user)
-        user.delete()
+    def test_missing_user_uid_raises_validation_error(self):
+        uid = urlsafe_base64_encode(force_bytes(999999999))
         s = UserActivateAccountSerializer(
             data={}, context={"uid": uid, "token": "anything"}
         )

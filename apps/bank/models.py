@@ -13,7 +13,7 @@ class Bank(BaseModel):
     user = models.ForeignKey("users.User", on_delete=models.RESTRICT)
 
     def save(self, *args, **kwargs):
-        if not self.pk:
+        if self._state.adding:
             has_bank = Bank.objects.filter(user=self.user).exists()
             if not has_bank:
                 self.default = True

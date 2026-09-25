@@ -36,7 +36,9 @@ class BankService:
         if bank.default and not bank.is_deleted:
             raise ValidationError("Primary Account can't be deleted")
 
-        action = bank.toggle_deleted()
-        if action == "activated" or not bank.is_deleted:
+        if bank.is_deleted:
+            bank.restore()
             return "Activated successfully"
+
+        bank.soft_delete()
         return "Deleted successfully"
