@@ -1,15 +1,15 @@
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import viewsets, status, filters
+from drf_spectacular.utils import extend_schema, extend_schema_view
+from rest_framework import filters, status, viewsets
+from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated, BasePermission
-from django.http import Http404
-from drf_spectacular.utils import extend_schema, extend_schema_view
 
+from apps.course.models import Course
+
+from .filters import CouponFilter
 from .serializers import CouponSerializer
 from .service import CouponService
-from .filters import CouponFilter
-from apps.course.models import Course
 
 
 class IsInstructorOrReadOnly(BasePermission):
@@ -17,10 +17,11 @@ class IsInstructorOrReadOnly(BasePermission):
     Permission to only allow instructors to create coupons for their courses,
     and admins to manage all.
     """
+
     def has_permission(self, request, view):
         if request.user.is_admin:
             return True
-        if request.method == 'POST':
+        if request.method == "POST":
             course_id = request.data.get("course")
             if not course_id:
                 return False
@@ -35,40 +36,37 @@ class IsInstructorOrReadOnly(BasePermission):
 @extend_schema_view(
     list=extend_schema(
         tags=["Coupon"],
-        description="List all coupons. Admin sees all, instructors see their own."
+        description="List all coupons. Admin sees all, instructors see their own.",
     ),
     retrieve=extend_schema(
-        tags=["Coupon"],
-        description="Retrieve a specific coupon by UUID."
+        tags=["Coupon"], description="Retrieve a specific coupon by UUID."
     ),
-    create=extend_schema(
-        tags=["Coupon"],
-        description="Create a new coupon."
-    ),
-    update=extend_schema(
-        tags=["Coupon"],
-        description="Update a coupon."
-    ),
+    create=extend_schema(tags=["Coupon"], description="Create a new coupon."),
+    update=extend_schema(tags=["Coupon"], description="Update a coupon."),
     partial_update=extend_schema(
-        tags=["Coupon"],
-        description="Partial update of a coupon (instructor or owner)."
+        tags=["Coupon"], description="Partial update of a coupon (instructor or owner)."
     ),
     destroy=extend_schema(
         tags=["Coupon"],
-        description="Toggle deletion status (soft delete/restore) for a coupon."
+        description="Toggle deletion status (soft delete/restore) for a coupon.",
     ),
 )
 class CouponViewSet(viewsets.ModelViewSet):
     """
     ViewSet for managing coupons.
     """
+
     permission_classes = [IsAuthenticated, IsInstructorOrReadOnly]
     serializer_class = CouponSerializer
-    filter_backends = (DjangoFilterBackend, filters.OrderingFilter, filters.SearchFilter)
+    filter_backends = (
+        DjangoFilterBackend,
+        filters.OrderingFilter,
+        filters.SearchFilter,
+    )
     filterset_class = CouponFilter
-    search_fields = ('code', 'course__title', 'course__short_description')
-    ordering_fields = ('created_at', 'expired_at', 'value', 'limit', 'used')
-    ordering = ('-created_at',)
+    search_fields = ("code", "course__title", "course__short_description")
+    ordering_fields = ("created_at", "expired_at", "value", "limit", "used")
+    ordering = ("-created_at",)
 
     def get_queryset(self):
         return CouponService.get_coupons(self.request.user)
@@ -81,20 +79,20 @@ class CouponViewSet(viewsets.ModelViewSet):
 
 @extend_schema_view(
     get=extend_schema(
-        tags=["Coupon"],
-        description="Retrieve and validate a coupon by its code."
+        tags=["Coupon"], description="Retrieve and validate a coupon by its code."
     ),
 )
 class GetCoupon(APIView):
     """
     API View to retrieve and validate a coupon by its code.
     """
+
     permission_classes = [IsAuthenticated]
 
     def get(self, request, code, format=None):
         coupon, error = CouponService.validate_coupon(code)
         if error:
             return Response({"errors": [error]}, status=status.HTTP_404_NOT_FOUND)
-        
+
         serializer = CouponSerializer(coupon)
         return Response(serializer.data, status=status.HTTP_200_OK)

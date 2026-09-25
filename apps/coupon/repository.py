@@ -15,9 +15,7 @@ class CouponRepository:
     def get_instructor_coupons(user):
         """Returns a queryset of coupons created by/for the instructor."""
         return Coupon.objects.filter(
-            deleted_at__isnull=True,
-            is_instructor_created=True,
-            course__instructor=user
+            deleted_at__isnull=True, is_instructor_created=True, course__instructor=user
         ).order_by("-created_at")
 
     @staticmethod

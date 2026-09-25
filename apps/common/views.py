@@ -9,7 +9,7 @@ from apps.core.permission import IsSuperuser
 from apps.course.models import Course
 from apps.enroll.models import Enroll
 from apps.order.models import Order
-from apps.user.models import User
+from apps.users.models import User
 from apps.wallet.models import Wallet
 
 

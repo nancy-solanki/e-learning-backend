@@ -1,4 +1,5 @@
 from rest_framework import serializers
+
 from .models import Coupon
 
 
@@ -7,7 +8,7 @@ class CouponSerializer(serializers.ModelSerializer):
 
     def get_course_title(self, instance):
         return instance.course.title
-    
+
     class Meta:
         model = Coupon
-        fields = '__all__'
+        fields = "__all__"

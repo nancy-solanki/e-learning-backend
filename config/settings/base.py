@@ -100,6 +100,8 @@ LOCAL_APPS = [
     "apps.section",
     "apps.lecture",
     "apps.coupon",
+    "apps.enroll",
+    "apps.order",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
