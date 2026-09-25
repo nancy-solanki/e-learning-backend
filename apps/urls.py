@@ -10,4 +10,5 @@ urlpatterns = [
     path("course/", include("apps.course.urls", namespace="course")),
     path("section/", include("apps.section.urls", namespace="section")),
     path("lecture/", include("apps.lecture.urls", namespace="lecture")),
+    path("coupon/", include("apps.coupon.urls", namespace="coupon")),
 ]
