@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import filters, status, viewsets
@@ -28,7 +29,7 @@ class IsInstructorOrReadOnly(BasePermission):
             try:
                 course = Course.objects.get(id=course_id)
                 return request.user == course.instructor
-            except Course.DoesNotExist:
+            except (Course.DoesNotExist, ValidationError):
                 return False
         return request.user.is_instructor
 

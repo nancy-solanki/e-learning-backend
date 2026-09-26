@@ -53,6 +53,40 @@ class User(AbstractUser, BaseModel):
         self.username = self.username.lower()
         super().save(*args, **kwargs)
 
+    @property
+    def is_admin(self):
+        return self.is_superuser or self.groups.filter(name="admin").exists()
+
+    @property
+    def is_instructor(self):
+        return self.groups.filter(name="instructor").exists()
+
+    def become_instructor(self):
+        from django.contrib.auth.models import Group
+
+        self.groups.add(Group.objects.get_or_create(name="instructor")[0])
+
+    def toggle_admin_privileges(self):
+        from django.contrib.auth.models import Group
+
+        group = Group.objects.get_or_create(name="admin")[0]
+        if self.groups.filter(pk=group.pk).exists():
+            self.groups.remove(group)
+            return "removed from"
+        self.groups.add(group)
+        return "added to"
+
+    def toggle_status(self):
+        if self.status not in (self.Status.ACTIVE, self.Status.SUSPEND):
+            raise ValueError("Only active or suspended users can change status.")
+        self.status = (
+            self.Status.SUSPEND
+            if self.status == self.Status.ACTIVE
+            else self.Status.ACTIVE
+        )
+        self.save(update_fields=["status"])
+        return "activated" if self.status == self.Status.ACTIVE else "suspended"
+
     def __str__(self):
         return self.email
 

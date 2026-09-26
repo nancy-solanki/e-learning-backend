@@ -1,40 +1,8 @@
 import pytest
 from django.contrib.auth.models import Group
 from rest_framework import status
-from rest_framework.test import APIClient
 
-from apps.users.tests.factories import SuperuserFactory, UserFactory
-
-
-@pytest.fixture
-def api_client():
-    return APIClient()
-
-
-@pytest.fixture
-def user(db):
-    return UserFactory()
-
-
-@pytest.fixture
-def superuser(db):
-    admin_group, _ = Group.objects.get_or_create(name="admin")
-    su = SuperuserFactory()
-    su.groups.add(admin_group)
-    return su
-
-
-@pytest.fixture
-def auth_client(api_client, user):
-    api_client.force_authenticate(user=user)
-    return api_client
-
-
-@pytest.fixture
-def admin_client(api_client, superuser):
-    api_client.force_authenticate(user=superuser)
-    return api_client
-
+from apps.users.tests.factories import UserFactory
 
 # ─────────────────────────────────────────────
 # UserProfileView — GET /users/me/
@@ -98,15 +66,10 @@ class TestBecomeInstructorView:
         response = api_client.post(self.url)
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_authenticated_non_instructor_returns_500_until_model_method_added(
-        self, auth_client, user
-    ):
-        """
-        Expects 500 because become_instructor() is not yet implemented
-        on the User model. Update to 200 once the model method is added.
-        """
+    def test_become_instructor_persists_role(self, auth_client, user):
         response = auth_client.post(self.url)
-        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        assert response.status_code == status.HTTP_200_OK
+        assert user.groups.filter(name="instructor").exists()
 
     def test_already_instructor_returns_400(self, auth_client, user):
         instructor_group, _ = Group.objects.get_or_create(name="instructor")
@@ -146,3 +109,86 @@ class TestUserViewSet:
     def test_delete_not_allowed(self, admin_client, user):
         response = admin_client.delete(f"{self.url}{user.pk}/")
         assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
+
+
+@pytest.mark.django_db
+class TestUserAdminActions:
+    def test_admin_toggle_persists(self, admin_client, user):
+        url = f"/api/v1/users/{user.pk}/modify_admin_privileges/"
+        assert admin_client.put(url).status_code == 200
+        user.refresh_from_db()
+        assert user.is_admin
+        assert admin_client.put(url).status_code == 200
+        user.refresh_from_db()
+        assert not user.is_admin
+
+    def test_self_admin_toggle_denied(self, admin_client, superuser):
+        response = admin_client.put(
+            f"/api/v1/users/{superuser.pk}/modify_admin_privileges/"
+        )
+        assert response.status_code == 400
+        assert superuser.groups.filter(name="admin").exists()
+
+    def test_status_toggle_persists(self, admin_client, user):
+        url = f"/api/v1/users/{user.pk}/modify_user_status/"
+        assert admin_client.put(url).status_code == 200
+        user.refresh_from_db()
+        assert user.status == "SA"
+        assert admin_client.put(url).status_code == 200
+        user.refresh_from_db()
+        assert user.status == "AC"
+
+    def test_pending_status_returns_400(self, admin_client):
+        user = UserFactory(status="PD")
+        response = admin_client.put(f"/api/v1/users/{user.pk}/modify_user_status/")
+        assert response.status_code == 400
+        user.refresh_from_db()
+        assert user.status == "PD"
+
+    @pytest.mark.parametrize(
+        "action", ["modify_admin_privileges", "modify_user_status"]
+    )
+    def test_regular_user_cannot_modify(self, auth_client, user, action):
+        assert auth_client.put(f"/api/v1/users/{user.pk}/{action}/").status_code == 403
+
+    @pytest.mark.parametrize(
+        "action, service",
+        [
+            ("modify_admin_privileges", "toggle_admin"),
+            ("modify_user_status", "toggle_status"),
+        ],
+    )
+    def test_service_failure_returns_500(
+        self, admin_client, user, mocker, action, service
+    ):
+        mocker.patch(
+            f"apps.users.views.UserService.{service}",
+            side_effect=RuntimeError("Unavailable"),
+        )
+        response = admin_client.put(f"/api/v1/users/{user.pk}/{action}/")
+        assert response.status_code == 500
+
+    def test_instructor_service_failure(self, auth_client, mocker):
+        mocker.patch(
+            "apps.users.views.UserService.make_instructor",
+            side_effect=RuntimeError("Unavailable"),
+        )
+        assert auth_client.post("/api/v1/users/become-instructor/").status_code == 500
+
+    def test_profile_invalid_update_does_not_persist(self, auth_client, user):
+        email = user.email
+        response = auth_client.put("/api/v1/users/me/", {"email": "invalid"})
+        assert response.status_code == 400
+        user.refresh_from_db()
+        assert user.email == email
+
+    def test_profile_update_does_not_change_another_user(self, auth_client, user):
+        other = UserFactory(first_name="Other")
+        response = auth_client.put(
+            "/api/v1/users/me/", {"id": str(other.pk), "first_name": "Updated"}
+        )
+        assert response.status_code == 200
+        user.refresh_from_db()
+        other.refresh_from_db()
+        assert user.first_name == "Updated"
+        assert other.first_name == "Other"

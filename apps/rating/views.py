@@ -55,9 +55,12 @@ class RatingViewSet(viewsets.ModelViewSet):
         return RatingService.get_ratings(self.request.user)
 
     def perform_create(self, serializer):
-        RatingService.add_rating(
+        serializer.instance = RatingService.add_rating(
             user=self.request.user, validated_data=serializer.validated_data
         )
+
+    def perform_destroy(self, instance):
+        instance.soft_delete()
 
 
 @extend_schema_view(

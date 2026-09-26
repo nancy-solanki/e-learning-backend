@@ -82,3 +82,49 @@ class TestUserModel:
     def test_female_gender(self):
         user = UserFactory(gender=User.Gender.FEMALE)
         assert user.gender == User.Gender.FEMALE
+
+
+@pytest.mark.django_db
+class TestUserRoles:
+    def test_become_instructor_is_idempotent(self):
+        user = UserFactory()
+        assert not user.is_instructor
+        user.become_instructor()
+        user.become_instructor()
+        user.refresh_from_db()
+        assert user.is_instructor
+        assert user.groups.filter(name="instructor").count() == 1
+
+    def test_toggle_admin_preserves_other_roles(self):
+        user = UserFactory()
+        user.become_instructor()
+        assert not user.is_admin
+        assert user.toggle_admin_privileges() == "added to"
+        user.refresh_from_db()
+        assert user.is_admin
+        assert user.toggle_admin_privileges() == "removed from"
+        user.refresh_from_db()
+        assert not user.is_admin
+        assert user.is_instructor
+
+    def test_superuser_is_admin_without_group(self):
+        from apps.users.tests.factories import SuperuserFactory
+
+        assert SuperuserFactory().is_admin
+
+    def test_toggle_status_persists(self):
+        user = UserFactory()
+        assert user.toggle_status() == "suspended"
+        user.refresh_from_db()
+        assert user.status == User.Status.SUSPEND
+        assert user.toggle_status() == "activated"
+        user.refresh_from_db()
+        assert user.status == User.Status.ACTIVE
+
+    @pytest.mark.parametrize("status", [User.Status.PENDING, User.Status.INACTIVE])
+    def test_non_active_status_cannot_be_toggled(self, status):
+        user = UserFactory(status=status)
+        with pytest.raises(ValueError):
+            user.toggle_status()
+        user.refresh_from_db()
+        assert user.status == status
