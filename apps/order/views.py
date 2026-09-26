@@ -35,7 +35,7 @@ class SingleOrderView(mixins.RetrieveModelMixin, generics.GenericAPIView):
     serializer_class = OrderSerializer
 
     def get_queryset(self):
-        return OrderService.get_order_queryset()
+        return OrderService.get_user_orders(self.request.user)
 
     def get(self, request, *args, **kwargs):
         return self.retrieve(request, *args, **kwargs)
@@ -69,7 +69,7 @@ class SingleOrderInstructorView(mixins.RetrieveModelMixin, generics.GenericAPIVi
     serializer_class = OrderSerializer
 
     def get_queryset(self):
-        return OrderService.get_order_queryset()
+        return OrderService.get_instructor_orders(self.request.user)
 
     def get(self, request, *args, **kwargs):
         return self.retrieve(request, *args, **kwargs)

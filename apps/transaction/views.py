@@ -34,7 +34,7 @@ class SingleTransactionView(mixins.RetrieveModelMixin, generics.GenericAPIView):
     serializer_class = TransactionSerializer
 
     def get_queryset(self):
-        return TransactionService.get_transaction_queryset()
+        return TransactionService.get_user_transactions(self.request.user)
 
     def get(self, request, *args, **kwargs):
         return self.retrieve(request, *args, **kwargs)

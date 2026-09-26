@@ -3,6 +3,8 @@ import math
 import os
 
 import razorpay
+from django.db import transaction
+from django.db.models import Q
 
 from apps.coupon.models import Coupon
 from apps.course.models import Course
@@ -59,12 +61,18 @@ class OrderService:
         return payment
 
     @staticmethod
+    @transaction.atomic
     def process_successful_payment(data, user):
         """
         Processes successful payment and updates related records.
         """
-        total = math.floor(float(data["total_paid"]))
-        course_id = data["course"]
+        try:
+            total = math.floor(float(data["total_paid"]))
+            course_id = data["course"]
+        except (KeyError, ValueError, TypeError, OverflowError):
+            return False, "Invalid payment data"
+        if total < 0:
+            return False, "Invalid payment amount"
         coupon_id = data.get("coupon")
         is_free = data.get("is_free", False)
 
@@ -73,29 +81,19 @@ class OrderService:
         except Course.DoesNotExist:
             return False, "Course not found"
 
+        if course.instructor == user:
+            return False, "You can't enroll in your own course!"
+        if EnrollRepository.get_user_enrollments(user).filter(course=course).exists():
+            return False, "Already enrolled in this course!"
+        if is_free and not course.is_free:
+            return False, "Course is not free"
+
         coupon = None
         if coupon_id:
             try:
                 coupon = Coupon.objects.get(id=coupon_id)
             except Coupon.DoesNotExist:
                 pass
-
-        if coupon:
-            if not coupon.is_unlimited:
-                coupon.used = coupon.used + 1
-                coupon.save()
-
-        order = OrderRepository.create_order(
-            course=course,
-            user=user,
-            instructor=course.instructor,
-            total_paid=total,
-            coupon=coupon,
-        )
-
-        enroll = EnrollRepository.create_enrollment(user=user, course=course)
-        order.enroll = enroll
-        order.save()
 
         if not is_free:
             try:
@@ -121,14 +119,28 @@ class OrderService:
                     verification_data
                 )
 
-                if check is None:
-                    order.status = "rejected"
-                    order.save()
+                if check is not True:
                     return False, "Payment verification failed"
             except (json.JSONDecodeError, KeyError, Exception) as e:
-                order.status = "rejected"
-                order.save()
                 return False, f"Error processing payment response: {str(e)}"
+
+        if coupon:
+            if not coupon.is_unlimited:
+                coupon.used = coupon.used + 1
+                coupon.save()
+
+        order = OrderRepository.create_order(
+            course=course,
+            user=user,
+            instructor=course.instructor,
+            total_paid=total,
+            is_free=is_free,
+            coupon=coupon,
+        )
+
+        enroll = EnrollRepository.create_enrollment(user=user, course=course)
+        order.enroll = enroll
+        order.save()
 
         admin_fee = math.floor(total * (10 / 100))
         instructor_earning = total - admin_fee
@@ -140,8 +152,9 @@ class OrderService:
         # Update Wallets
         site_wallet = WalletRepository.get_site_wallet()
         admin_wallets = Wallet.objects.filter(
-            user__is_admin=True, deleted_at__isnull=True
-        )
+            Q(user__is_superuser=True) | Q(user__groups__name="admin"),
+            deleted_at__isnull=True,
+        ).distinct()
         instructor_wallet = WalletRepository.get_wallet_by_user(course.instructor)
 
         if site_wallet:
