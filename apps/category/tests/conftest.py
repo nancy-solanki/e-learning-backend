@@ -2,34 +2,19 @@ import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
 
-from apps.category.models import Category
-from apps.common.models import Files
-from apps.users.tests.factories import SuperuserFactory, UserFactory
+from apps.category.tests.factories import CategoryFactory
+from apps.common.tests.factories import FileFactory
+from apps.users.tests.factories import SuperuserFactory
 
 
 @pytest.fixture
 def file_factory(db):
-    def create():
-        return Files.objects.create(
-            url="https://example.com/image.png", name="image.png"
-        )
-
-    return create
+    return FileFactory
 
 
 @pytest.fixture
-def category_factory(db, file_factory):
-    def create(**kwargs):
-        defaults = {
-            "title": f"category {Category.objects.count()}",
-            "description": "Learning resources",
-            "user": UserFactory(),
-            "thumbnail": file_factory(),
-        }
-        defaults.update(kwargs)
-        return Category.objects.create(**defaults)
-
-    return create
+def category_factory(db):
+    return CategoryFactory
 
 
 @pytest.fixture
