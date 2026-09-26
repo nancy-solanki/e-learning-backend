@@ -27,6 +27,7 @@ class CategoryService:
 
     @staticmethod
     def update_category(category, data, thumbnail=None):
+        data = data.copy()
         if thumbnail is not None:
             data["thumbnail"] = CategoryService.upload_thumbnail(thumbnail)
         return CategoryRepository.update_category(category, **data)

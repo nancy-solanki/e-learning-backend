@@ -9,6 +9,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
+      TEST_USE_POSTGRES: "1"
       DJANGO_SETTINGS_MODULE: config.settings.test
       SECRET_KEY: django-insecure-ci-secret-key
       CLOUDINARY_CLOUD_NAME: ci
@@ -43,7 +44,7 @@ jobs:
         run: uv python install 3.12
 
       - name: Install dependencies
-        run: uv sync --dev
+        run: uv sync --frozen --dev
 
       - name: Run migrations
         run: uv run python manage.py migrate --noinput
@@ -58,6 +59,7 @@ jobs:
         run: |
           uv run coverage run -m pytest
           uv run coverage report --fail-under=80
+          uv run coverage report --include="apps/category/*.py" --omit="apps/category/tests/*,apps/category/migrations/*" --fail-under=90
         env:
           DB_NAME: test_db
           DB_USER: postgres

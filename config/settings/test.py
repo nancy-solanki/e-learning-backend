@@ -18,15 +18,16 @@ ALLOWED_HOSTS = [
 
 
 # ---------------------------------------------------------------------------
-# Database — in-memory SQLite for fast test execution
+# Database — SQLite locally; use the PostgreSQL service in CI
 # ---------------------------------------------------------------------------
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": ":memory:",
+if os.getenv("TEST_USE_POSTGRES") != "1":
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": ":memory:",
+        }
     }
-}
 
 
 # ---------------------------------------------------------------------------

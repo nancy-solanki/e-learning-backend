@@ -18,7 +18,9 @@ class CategoryRepository:
 
     @staticmethod
     def get_active_categories():
-        return Category.objects.filter(deleted_at__isnull=True)
+        return Category.objects.filter(deleted_at__isnull=True).select_related(
+            "thumbnail"
+        )
 
     @staticmethod
     def create_category(**kwargs):
