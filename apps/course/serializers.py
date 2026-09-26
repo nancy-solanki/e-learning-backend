@@ -22,7 +22,7 @@ class CategoryMinimalSerializer(serializers.ModelSerializer):
 
 
 class InstructorSerializer(serializers.ModelSerializer):
-    avatar = FileSerializer(read_only=True)
+    avatar = serializers.URLField(read_only=True)
 
     class Meta:
         model = User
@@ -85,6 +85,7 @@ class FilteredCourseSerializer(serializers.ModelSerializer):
 
 
 class CourseSerializer(serializers.ModelSerializer):
+    instructor = serializers.PrimaryKeyRelatedField(read_only=True)
     student_count = serializers.SerializerMethodField()
 
     class Meta:

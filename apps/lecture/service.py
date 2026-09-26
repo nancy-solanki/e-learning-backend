@@ -11,19 +11,21 @@ class LectureService:
     """
 
     @staticmethod
-    def create_lecture(user, validated_data) -> str:
+    def create_lecture(user, validated_data):
         """
         Handles the creation of a lecture, including video duration calculation
         and updating course/section status if published.
         """
+        validated_data = validated_data.copy()
+        validated_data.pop("duration", None)
         source = validated_data.get("source")
         mins, secs = 0, 0
         duration_str = None
 
         if source and hasattr(source, "temporary_file_path"):
             try:
-                clip = VideoFileClip(source.temporary_file_path())
-                video_duration = int(clip.duration)
+                with VideoFileClip(source.temporary_file_path()) as clip:
+                    video_duration = int(clip.duration)
                 mins, secs = divmod(video_duration, 60)
                 duration_str = f"{str(mins).zfill(2)}:{str(secs).zfill(2)}"
             except Exception:
@@ -39,7 +41,7 @@ class LectureService:
         if validated_data.get("status") == "published":
             LectureService._handle_publication(lecture, mins)
 
-        return "Lecture created successfully"
+        return lecture
 
     @staticmethod
     def _handle_publication(lecture, mins):

@@ -30,7 +30,7 @@ class LectureViewSet(viewsets.ModelViewSet):
     queryset = LectureRepository.get_active_lectures()
     serializer_class = LectureSerializer
     lookup_field = "id"
-    http_method_names = ["get", "head", "option"]
+    http_method_names = ["get", "head", "options"]
 
 
 @extend_schema_view(
@@ -70,7 +70,7 @@ class AllLectureViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         # We let the service handle the creation logic including video processing
         # and course/section updates.
-        LectureService.create_lecture(
+        serializer.instance = LectureService.create_lecture(
             user=self.request.user, validated_data=serializer.validated_data
         )
 

@@ -28,7 +28,7 @@ class SectionViewSet(viewsets.ModelViewSet):
     queryset = SectionService.get_public_queryset()
     serializer_class = FilteredSectionSerializer
     lookup_field = "id"
-    http_method_names = ["get", "head", "option"]
+    http_method_names = ["get", "head", "options"]
 
 
 @extend_schema_view(
