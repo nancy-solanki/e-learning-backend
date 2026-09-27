@@ -6,6 +6,8 @@ import pytest
 from django.http import HttpResponse
 from django.test import RequestFactory
 from django.utils import timezone
+from rest_framework.test import APIClient
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.core.middleware import UserStatusMiddleware
 from apps.users.models import User
@@ -34,7 +36,7 @@ def test_without_bearer_passes_through(header, downstream):
 def test_valid_token_sets_user(settings, downstream):
     user = UserFactory()
     request = request_token(
-        settings, {"id": str(user.id), "iat": int(timezone.now().timestamp())}
+        settings, {"user_id": str(user.id), "iat": int(timezone.now().timestamp())}
     )
     assert UserStatusMiddleware(downstream)(request).status_code == 200
     assert request.user == user
@@ -44,7 +46,7 @@ def test_valid_token_sets_user(settings, downstream):
 @pytest.mark.parametrize("status", [User.Status.PENDING, User.Status.SUSPEND])
 def test_inactive_user_rejected(settings, downstream, status):
     user = UserFactory(status=status)
-    request = request_token(settings, {"id": str(user.id)})
+    request = request_token(settings, {"user_id": str(user.id)})
     response = UserStatusMiddleware(downstream)(request)
     assert response.status_code == 403
     assert response.is_rendered
@@ -65,7 +67,7 @@ def test_inactive_user_rejected(settings, downstream, status):
 )
 def test_invalid_tokens(settings, downstream, scenario):
     user = UserFactory()
-    payload = {"id": str(user.id)}
+    payload = {"user_id": str(user.id)}
     key = None
     if scenario == "expired":
         payload["exp"] = int((timezone.now() - timedelta(seconds=30)).timestamp())
@@ -74,9 +76,9 @@ def test_invalid_tokens(settings, downstream, scenario):
     elif scenario == "missing_user":
         payload = {}
     elif scenario == "unknown_user":
-        payload["id"] = str(uuid4())
+        payload["user_id"] = str(uuid4())
     elif scenario == "malformed_id":
-        payload["id"] = "invalid-uuid"
+        payload["user_id"] = "invalid-uuid"
     request = request_token(settings, payload, key)
     if scenario == "garbage":
         request.META["HTTP_AUTHORIZATION"] = "Bearer garbage"
@@ -94,7 +96,7 @@ def test_password_change_invalidates_older_tokens(
     changed = (timezone.now() - timedelta(minutes=5)).replace(microsecond=0)
     user = UserFactory(password_changed_at=changed)
     request = request_token(
-        settings, {"id": str(user.id), "iat": int(changed.timestamp()) + offset}
+        settings, {"user_id": str(user.id), "iat": int(changed.timestamp()) + offset}
     )
     assert UserStatusMiddleware(downstream)(request).status_code == expected
     assert downstream.call_count == (1 if expected == 200 else 0)
@@ -103,7 +105,19 @@ def test_password_change_invalidates_older_tokens(
 def test_missing_issued_at_after_password_change(settings, downstream):
     user = UserFactory(password_changed_at=timezone.now())
     response = UserStatusMiddleware(downstream)(
-        request_token(settings, {"id": str(user.id)})
+        request_token(settings, {"user_id": str(user.id)})
     )
     assert response.status_code == 401
     downstream.assert_not_called()
+
+
+def test_simplejwt_access_token_authenticates_me():
+    user = UserFactory()
+    token = RefreshToken.for_user(user).access_token
+    client = APIClient()
+    client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+
+    response = client.get("/api/v1/users/me/")
+
+    assert response.status_code == 200
+    assert response.data["email"] == user.email

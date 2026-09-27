@@ -7,6 +7,7 @@ from django.utils.translation import gettext_lazy as _
 from rest_framework import status
 from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
+from rest_framework_simplejwt.settings import api_settings
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -41,14 +42,16 @@ class UserStatusMiddleware:
                     options={"verify_signature": True},
                 )
 
-                # SimpleJWT uses 'id' as specified in settings.py
-                user_id = payload.get("id")
+                # Use the same identity claim as the token issuer.
+                user_id = payload.get(api_settings.USER_ID_CLAIM)
                 iat = payload.get("iat")
 
                 if not user_id:
                     raise jwt.InvalidTokenError("user_id not found in token")
 
-                user = User.objects.filter(id=user_id).first()
+                user = User.objects.filter(
+                    **{api_settings.USER_ID_FIELD: user_id}
+                ).first()
                 if not user:
                     raise jwt.InvalidTokenError("User not found")
 

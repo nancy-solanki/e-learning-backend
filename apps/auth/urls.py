@@ -5,6 +5,7 @@ from apps.auth.views import (
     AppleLoginView,
     GoogleLoginView,
     SendPasswordResetEmailView,
+    StaffSignInView,
     UserActivateAccountView,
     UserChangePasswordView,
     UserLogoutView,
@@ -17,6 +18,7 @@ app_name = "auth"
 urlpatterns = [
     path("sign-up/", UserRegistrationView.as_view(), name="sign-up"),
     path("sign-in/", TokenObtainPairView.as_view(), name="sign-in"),
+    path("staff/sign-in/", StaffSignInView.as_view(), name="staff-sign-in"),
     path("sign-out/", UserLogoutView.as_view(), name="sign-out"),
     path("refresh/", TokenRefreshView.as_view(), name="refresh"),
     path("google/", GoogleLoginView.as_view(), name="google-login"),

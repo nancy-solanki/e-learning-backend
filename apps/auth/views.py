@@ -8,10 +8,12 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .serializers import (
     SendPasswordResetEmailSerializer,
     SocialLoginSerializer,
+    StaffSignInSerializer,
     UserActivateAccountSerializer,
     UserChangePasswordSerializer,
     UserLogoutSerializer,
@@ -20,6 +22,10 @@ from .serializers import (
 )
 
 User = get_user_model()
+
+
+class StaffSignInView(TokenObtainPairView):
+    serializer_class = StaffSignInSerializer
 
 
 class GoogleLoginView(SocialLoginView):

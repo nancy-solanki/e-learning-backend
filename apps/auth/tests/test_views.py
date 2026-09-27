@@ -7,10 +7,12 @@ only external side-effects (Celery tasks, email) are mocked.
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from rest_framework import status
 from rest_framework.test import APIClient
+from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.auth.services import account_activation_token, password_reset_token
@@ -391,3 +393,58 @@ class TestUserActivateAccountView:
         url = self._url(pending_user)
         response = api_client.get(url)
         assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
+
+
+@pytest.mark.django_db
+class TestStaffSignInView:
+    url = "/api/v1/auth/staff/sign-in/"
+
+    @pytest.mark.parametrize(
+        "roles, expected",
+        [
+            (["admin"], 200),
+            (["instructor"], 200),
+            (["admin", "instructor"], 200),
+            ([], 403),
+            (["student"], 403),
+            (["other"], 403),
+            (["admin", "student"], 403),
+            (["instructor", "student"], 403),
+        ],
+    )
+    def test_group_restrictions(self, api_client, active_user, roles, expected):
+        for role in roles:
+            active_user.groups.add(Group.objects.get_or_create(name=role)[0])
+        response = api_client.post(
+            self.url, {"email": active_user.email, "password": "testpassword123!"}
+        )
+        assert response.status_code == expected
+        if expected == 200:
+            assert {"access", "refresh"} <= response.data.keys()
+            api_client.credentials(
+                HTTP_AUTHORIZATION=f"Bearer {response.data['access']}"
+            )
+            assert api_client.get("/api/v1/users/me/").status_code == 200
+        else:
+            assert "access" not in response.data
+            assert "refresh" not in response.data
+            assert not OutstandingToken.objects.filter(user=active_user).exists()
+            active_user.refresh_from_db()
+            assert active_user.last_login is None
+
+    def test_superuser_flag_does_not_bypass_groups(self, api_client, active_user):
+        active_user.is_superuser = True
+        active_user.is_staff = True
+        active_user.save()
+        response = api_client.post(
+            self.url, {"email": active_user.email, "password": "testpassword123!"}
+        )
+        assert response.status_code == 403
+
+    def test_wrong_password(self, api_client, active_user):
+        active_user.groups.add(Group.objects.get_or_create(name="admin")[0])
+        response = api_client.post(
+            self.url, {"email": active_user.email, "password": "wrongpassword"}
+        )
+        assert response.status_code == 401
+        assert not OutstandingToken.objects.filter(user=active_user).exists()

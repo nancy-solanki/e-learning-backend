@@ -9,6 +9,8 @@ from django.contrib.auth.models import Group
 from django.utils.encoding import DjangoUnicodeDecodeError, smart_str
 from django.utils.http import urlsafe_base64_decode
 from rest_framework import serializers
+from rest_framework.exceptions import PermissionDenied
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 
 from .services import (
@@ -19,6 +21,17 @@ from .services import (
 )
 
 User = get_user_model()
+
+
+class StaffSignInSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        roles = set(user.groups.values_list("name", flat=True))
+        if not roles or not roles.issubset({"admin", "instructor"}):
+            raise PermissionDenied(
+                "Staff sign-in requires only admin or instructor group membership."
+            )
+        return super().get_token(user)
 
 
 class SocialLoginSerializer(BaseSocialLoginSerializer):
