@@ -27,7 +27,9 @@ class FileService:
             )
 
         try:
-            response = cloudinary.uploader.upload(file=file, folder=folder)
+            response = cloudinary.uploader.upload(
+                file=file, folder=folder, resource_type="auto"
+            )
         except Exception as e:
             raise ValueError(f"{str(e)}")
         return FileRepository.create_file(

@@ -19,7 +19,7 @@ def cloud(mocker):
 def test_upload_persists_metadata(cloud, content_type):
     upload = SimpleUploadedFile("asset", b"content", content_type=content_type)
     result = FileService.upload_file_to_cloud(upload, "category")
-    cloud.assert_called_once_with(file=upload, folder="category")
+    cloud.assert_called_once_with(file=upload, folder="category", resource_type="auto")
     result.refresh_from_db()
     assert result.url == "https://example.com/upload.png"
     assert result.name == "asset"
