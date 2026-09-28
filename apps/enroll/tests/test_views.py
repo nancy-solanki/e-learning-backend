@@ -41,6 +41,6 @@ def test_course_lookup(client, enroll):
     enroll.course.save()
     response = client.get(target)
     assert response.status_code == 200
-    assert response.data[0]["id"] == str(enroll.pk)
+    assert response.data["results"][0]["id"] == str(enroll.pk)
     enroll.soft_delete()
     assert client.get(target).status_code == 404

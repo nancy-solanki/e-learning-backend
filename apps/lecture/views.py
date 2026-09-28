@@ -1,9 +1,9 @@
 from django.http import Http404
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import status, viewsets
+from rest_framework.generics import ListAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.views import APIView
 
 from apps.core.permission import IsInstructorOrAdmin
 
@@ -89,20 +89,17 @@ class AllLectureViewSet(viewsets.ModelViewSet):
         description="Retrieve all lectures belonging to a specific section slug.",
     ),
 )
-class LectureBySectionView(APIView):
+class LectureBySectionView(ListAPIView):
     """
     API View to retrieve lectures associated with a specific section.
     """
 
+    serializer_class = LectureSerializer
+    filter_backends = ()
     permission_classes = [AllowAny]
 
-    def get_object(self, slug):
-        lectures = LectureRepository.get_lectures_by_section_slug(slug)
+    def get_queryset(self):
+        lectures = LectureRepository.get_lectures_by_section_slug(self.kwargs["slug"])
         if not lectures.exists():
             raise Http404
         return lectures
-
-    def get(self, request, slug, format=None):
-        lecture = self.get_object(slug)
-        serializer = LectureSerializer(lecture, many=True)
-        return Response(serializer.data)

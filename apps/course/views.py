@@ -1,9 +1,9 @@
 from django.http import Http404
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import filters, status, viewsets
+from rest_framework.generics import ListAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.views import APIView
 
 from apps.category.models import Category
 from apps.core.permission import IsInstructorOrAdmin, IsSuperuserOrReadOnly
@@ -55,21 +55,18 @@ class CourseViewSet(viewsets.ModelViewSet):
         ),
     ),
 )
-class CourseByCategoryView(APIView):
+class CourseByCategoryView(ListAPIView):
+    serializer_class = FilteredCourseSerializer
+    filter_backends = ()
     permission_classes = [AllowAny]
 
-    def get_object(self, slug):
-        category = Category.objects.filter(deleted_at__isnull=True, slug=slug).first()
+    def get_queryset(self):
+        category = Category.objects.filter(
+            deleted_at__isnull=True, slug=self.kwargs["slug"]
+        ).first()
         if not category:
             raise Http404
         return CourseService.get_courses_by_category(category)
-
-    def get(self, request, slug, format=None):
-        course = self.get_object(slug)
-        serializer = FilteredCourseSerializer(
-            course, many=True, context={"request": request}
-        )
-        return Response(serializer.data)
 
 
 @extend_schema_view(

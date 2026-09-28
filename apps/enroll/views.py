@@ -1,10 +1,9 @@
 from django.http import Http404
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
-from rest_framework import filters, status, viewsets
+from rest_framework import filters, viewsets
+from rest_framework.generics import ListAPIView
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework.views import APIView
 
 from .filters import EnrollFilter
 from .serializers import EnrollSerializer
@@ -60,27 +59,21 @@ class EnrollViewSet(viewsets.ModelViewSet):
         description="Retrieve all enrollments associated with a specific course slug.",
     ),
 )
-class EnrollByCourseView(APIView):
+class EnrollByCourseView(ListAPIView):
     """
     API View to retrieve enrollments associated with a specific course slug.
     Only active enrollments for published courses are returned.
     """
 
+    serializer_class = EnrollSerializer
+    filter_backends = ()
     permission_classes = [IsAuthenticated]
 
-    def get_object(self, slug):
+    def get_queryset(self):
         """
         Retrieve enrollments for a course by slug.
         """
-        enrollments = EnrollService.get_enrollments_by_course(slug)
+        enrollments = EnrollService.get_enrollments_by_course(self.kwargs["slug"])
         if not enrollments.exists():
             raise Http404
         return enrollments
-
-    def get(self, request, slug, format=None):
-        """
-        List enrollements for a specific course.
-        """
-        enrollments = self.get_object(slug)
-        serializer = EnrollSerializer(enrollments, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)

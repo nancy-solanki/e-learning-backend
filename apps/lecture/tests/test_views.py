@@ -22,7 +22,7 @@ def test_public_visibility_and_options(client, lecture):
 def test_section_lookup(client, lecture):
     response = client.get(PUBLIC + f"section/{lecture.section.slug}/")
     assert response.status_code == 200
-    assert response.data[0]["id"] == str(lecture.pk)
+    assert response.data["results"][0]["id"] == str(lecture.pk)
     assert client.get(PUBLIC + "section/missing/").status_code == 404
 
 

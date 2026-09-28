@@ -106,9 +106,71 @@ class TestUserViewSet:
         response = admin_client.post(self.url, {})
         assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
 
-    def test_delete_not_allowed(self, admin_client, user):
-        response = admin_client.delete(f"{self.url}{user.pk}/")
-        assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
+    def test_delete_soft_deletes_and_hides_user(self, admin_client, user):
+        from apps.course.tests.factories import CourseFactory
+
+        course = CourseFactory(instructor=user)
+        target = f"{self.url}{user.pk}/"
+        response = admin_client.delete(target)
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert not response.content
+        user.refresh_from_db()
+        assert user.deleted_at is not None
+        assert not user.is_active
+        assert user.status == user.Status.INACTIVE
+        course.refresh_from_db()
+        assert course.instructor_id == user.pk
+        assert admin_client.get(target).status_code == 404
+        assert admin_client.put(target, {"first_name": "Changed"}).status_code == 404
+        assert admin_client.delete(target).status_code == 404
+        assert str(user.pk) not in {
+            str(row["id"]) for row in admin_client.get(self.url).data["results"]
+        }
+
+    def test_delete_self_is_rejected(self, admin_client, superuser):
+        response = admin_client.delete(f"{self.url}{superuser.pk}/")
+        assert response.status_code == 400
+        superuser.refresh_from_db()
+        assert superuser.deleted_at is None
+        assert superuser.is_active
+
+    def test_delete_requires_admin(self, auth_client, user):
+        other = UserFactory()
+        assert auth_client.delete(f"{self.url}{other.pk}/").status_code == 403
+        other.refresh_from_db()
+        assert other.deleted_at is None
+
+    def test_delete_requires_authentication(self, api_client, user):
+        assert api_client.delete(f"{self.url}{user.pk}/").status_code == 401
+        user.refresh_from_db()
+        assert user.deleted_at is None
+
+    def test_delete_missing_user(self, admin_client):
+        from uuid import uuid4
+
+        assert admin_client.delete(f"{self.url}{uuid4()}/").status_code == 404
+
+    def test_deleted_user_cannot_authenticate(self, admin_client, user):
+        from django.urls import reverse
+        from rest_framework.test import APIClient
+        from rest_framework_simplejwt.tokens import RefreshToken
+
+        refresh = RefreshToken.for_user(user)
+        token = str(refresh.access_token)
+        assert admin_client.delete(f"{self.url}{user.pk}/").status_code == 204
+        client = APIClient()
+        response = client.get("/api/v1/users/me/", HTTP_AUTHORIZATION=f"Bearer {token}")
+        assert response.status_code == 401
+        response = client.post(
+            reverse("auth:sign-in"),
+            {
+                "email": user.email,
+                "password": "testpassword123!",
+            },
+        )
+        assert response.status_code == 401
+        response = client.post(reverse("auth:refresh"), {"refresh": str(refresh)})
+        assert response.status_code == 401
 
 
 @pytest.mark.django_db
@@ -192,3 +254,109 @@ class TestUserAdminActions:
         other.refresh_from_db()
         assert user.first_name == "Updated"
         assert other.first_name == "Other"
+
+
+@pytest.mark.django_db
+class TestUserListFilters:
+    url = "/api/v1/users/"
+
+    @pytest.mark.parametrize(
+        "value, stored_status",
+        [("active", "AC"), ("pending", "PD"), ("suspended", "SA"), ("inactive", "NA")],
+    )
+    def test_status_filter(self, admin_client, value, stored_status):
+        users = [UserFactory(status=s) for s in ["AC", "PD", "SA", "NA"]]
+        response = admin_client.get(self.url, {"status": value})
+        assert response.status_code == 200
+        ids = {str(row["id"]) for row in response.data["results"]}
+        for user in users:
+            assert (str(user.pk) in ids) == (user.status == stored_status)
+
+    @pytest.mark.parametrize("value", ["invalid", "AC", "ACTIVE", "suspend"])
+    def test_invalid_status(self, admin_client, value):
+        response = admin_client.get(self.url, {"status": value})
+        assert response.status_code == 400
+        assert "status" in response.data
+
+    @pytest.mark.parametrize("field", ["email", "username", "first_name", "last_name"])
+    def test_search(self, admin_client, field):
+        value = "searchtarget@example.com" if field == "email" else "searchtarget"
+        matching = UserFactory(**{field: value})
+        UserFactory()
+        response = admin_client.get(self.url, {"search": "SEARCHTARGET"})
+        assert response.status_code == 200
+        assert [str(row["id"]) for row in response.data["results"]] == [
+            str(matching.pk)
+        ]
+
+    def test_combined_search_and_status(self, admin_client):
+        matching = UserFactory(first_name="SearchTarget", status="SA")
+        UserFactory(first_name="SearchTarget", status="AC")
+        UserFactory(first_name="SomeoneElse", status="SA")
+        response = admin_client.get(
+            self.url, {"search": "SearchTarget", "status": "suspended"}
+        )
+        assert response.status_code == 200
+        assert [str(row["id"]) for row in response.data["results"]] == [
+            str(matching.pk)
+        ]
+
+    @pytest.mark.parametrize("field", ["created_at", "email", "username"])
+    @pytest.mark.parametrize("descending", [False, True])
+    def test_ordering(self, admin_client, field, descending):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        now = timezone.now()
+        older = UserFactory(
+            first_name="OrderingTarget",
+            email="a@example.com",
+            username="aaa",
+            created_at=now - timedelta(days=1),
+        )
+        newer = UserFactory(
+            first_name="OrderingTarget",
+            email="z@example.com",
+            username="zzz",
+            created_at=now,
+        )
+        ordering = f"-{field}" if descending else field
+        response = admin_client.get(
+            self.url, {"search": "OrderingTarget", "ordering": ordering}
+        )
+        assert response.status_code == 200
+        expected = [newer, older] if descending else [older, newer]
+        assert [str(row["id"]) for row in response.data["results"]] == [
+            str(user.pk) for user in expected
+        ]
+
+    @pytest.mark.parametrize("ordering", [None, "password"])
+    def test_default_ordering(self, admin_client, ordering):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        now = timezone.now()
+        newer = UserFactory(first_name="OrderingTarget", created_at=now)
+        older = UserFactory(
+            first_name="OrderingTarget", created_at=now - timedelta(days=1)
+        )
+        params = {"search": "OrderingTarget"}
+        if ordering is not None:
+            params["ordering"] = ordering
+        response = admin_client.get(self.url, params)
+        assert response.status_code == 200
+        assert [str(row["id"]) for row in response.data["results"]] == [
+            str(newer.pk),
+            str(older.pk),
+        ]
+
+    @pytest.mark.parametrize("value", ["true", "false"])
+    def test_unrelated_default_parameter_does_not_filter_status(
+        self, admin_client, value
+    ):
+        user = UserFactory(status="AC")
+        response = admin_client.get(self.url, {"default": value})
+        assert response.status_code == 200
+        assert str(user.pk) in {str(row["id"]) for row in response.data["results"]}

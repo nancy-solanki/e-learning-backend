@@ -1,9 +1,8 @@
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
-from rest_framework import filters, status, viewsets
+from rest_framework import filters, viewsets
+from rest_framework.generics import ListAPIView
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework.views import APIView
 
 from apps.core.permission import IsOwnerOrInstructor
 
@@ -69,14 +68,14 @@ class RatingViewSet(viewsets.ModelViewSet):
         description="Retrieve all ratings for courses where the user is an instructor.",
     ),
 )
-class RatingByInstructorView(APIView):
+class RatingByInstructorView(ListAPIView):
     """
     API View to retrieve ratings for courses taught by the current instructor.
     """
 
+    serializer_class = RatingSerializer
+    filter_backends = ()
     permission_classes = [IsAuthenticated]
 
-    def get(self, request, format=None):
-        ratings = RatingService.get_instructor_course_ratings(request.user)
-        serializer = RatingSerializer(ratings, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+    def get_queryset(self):
+        return RatingService.get_instructor_course_ratings(self.request.user)

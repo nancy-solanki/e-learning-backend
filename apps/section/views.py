@@ -1,9 +1,9 @@
 from django.http import Http404
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import status, viewsets
+from rest_framework.generics import ListAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.views import APIView
 
 from apps.core.permission import IsInstructorOrAdmin
 from apps.course.models import Course
@@ -77,21 +77,18 @@ class AllSectionViewSet(viewsets.ModelViewSet):
     tags=["Section"],
     description="Retrieve all sections belonging to a specific course slug.",
 )
-class SectionByCourseView(APIView):
+class SectionByCourseView(ListAPIView):
+    serializer_class = SectionSerializer
+    filter_backends = ()
     permission_classes = [AllowAny]
 
-    def get_object(self, slug):
+    def get_queryset(self):
         try:
             course = (
                 Course.objects.filter(deleted_at__isnull=True)
                 .filter(instructor__status="AC")
-                .get(slug=slug)
+                .get(slug=self.kwargs["slug"])
             )
             return SectionService.get_sections_by_course(course)
         except Course.DoesNotExist:
             raise Http404
-
-    def get(self, request, slug, format=None):
-        section = self.get_object(slug)
-        serializer = SectionSerializer(section, many=True)
-        return Response(serializer.data)

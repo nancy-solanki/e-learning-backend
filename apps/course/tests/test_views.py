@@ -28,7 +28,7 @@ def test_category_lookup(client, course):
     course.save()
     response = client.get(PUBLIC + f"category/{category.slug}/")
     assert response.status_code == 200
-    assert [row["id"] for row in response.data] == [str(course.pk)]
+    assert [row["id"] for row in response.data["results"]] == [str(course.pk)]
     assert client.get(PUBLIC + "category/missing/").status_code == 404
 
 

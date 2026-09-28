@@ -1,3 +1,6 @@
+from django.utils import timezone
+
+
 class UserService:
     """
     Service to handle business logic relating to the User model.
@@ -27,3 +30,11 @@ class UserService:
         """
         action = user.toggle_status()
         return f"User {action} successfully"
+
+    @staticmethod
+    def delete_user(user):
+        """Soft-delete the account and disable authentication."""
+        user.deleted_at = timezone.now()
+        user.is_active = False
+        user.status = user.Status.INACTIVE
+        user.save(update_fields=["deleted_at", "is_active", "status", "updated_at"])

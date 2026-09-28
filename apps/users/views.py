@@ -1,12 +1,15 @@
 from django.contrib.auth import get_user_model
-from rest_framework import status
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters, status
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
 from apps.core.permission import IsSuperuser
+from apps.users.filters import UserFilter
 
 from .repository import UserRepository
 from .serializers import UserProfileSerializer, UserSerializer
@@ -53,8 +56,22 @@ class BecomeInstructorView(APIView):
 class UserViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated, IsSuperuser]
     serializer_class = UserSerializer
-    queryset = UserRepository.get_all_users()
-    http_method_names = ["get", "put"]
+    filter_backends = (
+        DjangoFilterBackend,
+        filters.OrderingFilter,
+        filters.SearchFilter,
+    )
+    filterset_class = UserFilter
+    search_fields = ("email", "username", "first_name", "last_name")
+    ordering_fields = ("created_at", "email", "username")
+    ordering = ("-created_at",)
+    queryset = UserRepository.get_all_users().filter(deleted_at__isnull=True)
+    http_method_names = ["get", "put", "delete"]
+
+    def perform_destroy(self, instance):
+        if instance.pk == self.request.user.pk:
+            raise ValidationError({"error": "Cannot delete your own account"})
+        UserService.delete_user(instance)
 
     @action(["put"], detail=True)
     def modify_admin_privileges(self, request, *args, **kwargs):

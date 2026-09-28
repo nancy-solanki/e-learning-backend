@@ -83,7 +83,7 @@ def test_instructor_lists_only_own_courses(client, rating, instructor):
     response = client.get(url())
     assert [row["id"] for row in response.data["results"]] == [str(rating.pk)]
     response = client.get(reverse("rating:rating-by-instructor"))
-    assert [row["id"] for row in response.data] == [str(rating.pk)]
+    assert [row["id"] for row in response.data["results"]] == [str(rating.pk)]
 
 
 def test_search(client, rating):
