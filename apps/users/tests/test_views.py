@@ -25,13 +25,13 @@ class TestUserProfileView:
         response = auth_client.get(self.url)
         assert response.data["email"] == user.email
 
-    def test_student_does_not_receive_role(self, auth_client, user):
+    def test_student_receives_role(self, auth_client, user):
         student_group, _ = Group.objects.get_or_create(name="student")
         user.groups.add(student_group)
 
         response = auth_client.get(self.url)
 
-        assert "role" not in response.data
+        assert response.data["role"] == ["student"]
 
     @pytest.mark.parametrize("role", ["instructor", "admin"])
     def test_instructor_or_admin_receives_role(self, auth_client, user, role):
@@ -42,10 +42,10 @@ class TestUserProfileView:
 
         assert response.data["role"] == [role]
 
-    def test_put_updates_first_name(self, auth_client, user):
-        response = auth_client.put(self.url, {"first_name": "Updated"})
+    def test_put_updates_full_name(self, auth_client, user):
+        response = auth_client.put(self.url, {"full_name": "Updated"})
         assert response.status_code == status.HTTP_200_OK
-        assert response.data["first_name"] == "Updated"
+        assert response.data["full_name"] == "Updated"
 
     def test_put_updates_phone_number(self, auth_client, user):
         response = auth_client.put(self.url, {"phone_number": "9876543210"})
@@ -247,7 +247,7 @@ class TestUserAdminActions:
     def test_profile_update_does_not_change_another_user(self, auth_client, user):
         other = UserFactory(first_name="Other")
         response = auth_client.put(
-            "/api/v1/users/me/", {"id": str(other.pk), "first_name": "Updated"}
+            "/api/v1/users/me/", {"id": str(other.pk), "full_name": "Updated"}
         )
         assert response.status_code == 200
         user.refresh_from_db()

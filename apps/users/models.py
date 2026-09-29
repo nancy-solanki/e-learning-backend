@@ -39,6 +39,15 @@ class User(AbstractUser, BaseModel):
         _("message notifications"), default=True
     )
     email_notifications = models.BooleanField(_("email notifications"), default=True)
+    public_profile = models.BooleanField(_("public profile"), default=False)
+    search_engine_visibility = models.BooleanField(
+        _("search engine visibility"), default=False
+    )
+    share_learning_activity = models.BooleanField(
+        _("share learning activity"), default=False
+    )
+    language = models.CharField(_("language"), max_length=35, default="en")
+    bio = models.TextField(_("bio"), blank=True)
     password_changed_at = models.DateTimeField(
         _("password changed at"), null=True, blank=True
     )

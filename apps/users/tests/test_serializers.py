@@ -12,10 +12,7 @@ def test_profile_roles_and_sensitive_fields(role):
     user = UserFactory()
     user.groups.add(Group.objects.get_or_create(name=role)[0])
     data = UserProfileSerializer(user).data
-    if role == "student":
-        assert "role" not in data
-    else:
-        assert data["role"] == [role]
+    assert data["role"] == [role]
     assert "password" not in data
     assert "is_superuser" not in data
     assert data["gender"] == "MALE"
@@ -36,7 +33,7 @@ def test_user_representation():
         ("avatar", "invalid"),
         ("phone_number", "1" * 16),
         ("birth_date", "invalid"),
-        ("first_name", "x" * 201),
+        ("full_name", "x" * 201),
     ],
 )
 def test_profile_validation(user, field, value):
