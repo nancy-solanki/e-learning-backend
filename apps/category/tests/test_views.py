@@ -151,3 +151,51 @@ def test_ordering(api_client, category_factory):
     category_factory(title="Java")
     response = api_client.get(list_url(), {"ordering": "title"})
     assert [row["title"] for row in response.data["results"]] == ["java", "python"]
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        {"title": "PYTHON"},
+        {"slug": "PYTHON"},
+        {"search": "CODING"},
+        {"search": "python", "title": "PYTHON", "ordering": "title"},
+    ],
+)
+def test_case_insensitive_filters_and_description_search(
+    api_client, category_factory, query
+):
+    category_factory(title="Python", description="Coding lessons")
+    category_factory(title="Java", description="Other lessons")
+    response = api_client.get(list_url(), query)
+    assert response.status_code == 200
+    assert [row["title"] for row in response.data["results"]] == ["python"]
+
+
+def test_category_pagination(api_client, category_factory):
+    for i in range(21):
+        category_factory(title=f"Category {i:02d}")
+    default = api_client.get(list_url())
+    assert default.data["count"] == 21
+    assert len(default.data["results"]) == 20
+    first = api_client.get(
+        list_url(), {"search": "category", "page_size": 10, "ordering": "title"}
+    )
+    second = api_client.get(first.data["next"])
+    third = api_client.get(second.data["next"])
+    assert len(first.data["results"]) == len(second.data["results"]) == 10
+    assert len(third.data["results"]) == 1
+    assert first.data["previous"] is None
+    assert third.data["next"] is None
+    assert api_client.get(second.data["previous"]).data == first.data
+    rows = first.data["results"] + second.data["results"] + third.data["results"]
+    assert len({row["id"] for row in rows}) == 21
+    assert api_client.get(list_url(), {"page": "invalid"}).status_code == 404
+    assert api_client.get(list_url(), {"page": 99}).status_code == 404
+
+
+def test_category_page_size_cap(api_client, category_factory):
+    category_factory.create_batch(101)
+    response = api_client.get(list_url(), {"page_size": 200})
+    assert response.data["count"] == 101
+    assert len(response.data["results"]) == 100

@@ -6,6 +6,8 @@ from rest_framework.response import Response
 
 from apps.core.permission import IsSuperuserOrReadOnly
 
+from .filters import CategoryFilter
+from .pagination import CategoryPagination
 from .serializers import CategorySerializer
 from .service import CategoryService
 
@@ -27,10 +29,11 @@ class CategoryViewSet(viewsets.ModelViewSet):
         filters.OrderingFilter,
         filters.SearchFilter,
     )
-    filterset_fields = ("title", "slug")
+    filterset_class = CategoryFilter
+    pagination_class = CategoryPagination
     search_fields = ["title", "slug", "description"]
     ordering_fields = ["created_at", "title"]
-    ordering = ["-created_at"]
+    ordering = ["-created_at", "-id"]
     parser_classes = (MultiPartParser,)
 
     def get_queryset(self):
