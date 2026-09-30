@@ -107,3 +107,70 @@ def test_filters(client, query):
     CouponFactory()
     response = client.get(url(), query)
     assert [row["id"] for row in response.data["results"]] == [str(matching.pk)]
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        {"code": "match"},
+        {"expired_at_after": "2030-01-01", "expired_at_before": "2030-01-31"},
+        {"value_min": "20", "value_max": "30"},
+    ],
+)
+def test_extended_filters(client, query):
+    client.force_authenticate(SuperuserFactory())
+    matching = CouponFactory(code="MATCH", expired_at="2030-01-15", value=25)
+    CouponFactory(expired_at="2029-01-01", value=10)
+    response = client.get(url(), query)
+    assert response.status_code == 200
+    assert [row["id"] for row in response.data["results"]] == [str(matching.pk)]
+
+
+def test_deleted_filter_respects_instructor_scope(client, coupon, instructor):
+    coupon.soft_delete()
+    client.force_authenticate(SuperuserFactory())
+    assert client.get(url(), {"is_deleted": "true"}).data["count"] == 1
+    assert client.get(url(), {"is_deleted": "false"}).data["count"] == 0
+    client.force_authenticate(instructor)
+    assert client.get(url(), {"is_deleted": "true"}).data["count"] == 0
+
+
+def test_combined_search_filter_ordering_and_pagination(client):
+    client.force_authenticate(SuperuserFactory())
+    CouponFactory(code="SAVE-B", value=20)
+    CouponFactory(code="SAVE-A", value=30)
+    CouponFactory(code="SAVE-C", value=5)
+    CouponFactory(code="OTHER", value=30)
+    query = {"search": "save", "value_min": 10, "ordering": "code", "page_size": 1}
+    first = client.get(url(), query)
+    assert first.status_code == 200
+    assert first.data["count"] == 2
+    assert first.data["results"][0]["code"] == "SAVE-A"
+    assert first.data["next"] is not None
+    assert first.data["previous"] is None
+    second = client.get(url(), {**query, "page": 2})
+    assert second.data["results"][0]["code"] == "SAVE-B"
+    assert second.data["next"] is None
+    assert second.data["previous"] is not None
+    assert client.get(url(), {**query, "page": 3}).status_code == 404
+
+
+@pytest.mark.parametrize(
+    "query", [{"course": "invalid"}, {"expired_at_after": "bad"}, {"value_min": "bad"}]
+)
+def test_invalid_filters(client, query):
+    client.force_authenticate(SuperuserFactory())
+    assert client.get(url(), query).status_code == 400
+
+
+@pytest.mark.parametrize(
+    "page_size, expected", [("bad", 20), ("0", 20), ("-1", 20), ("500", 100)]
+)
+def test_page_size_limits(page_size, expected):
+    from rest_framework.request import Request
+    from rest_framework.test import APIRequestFactory
+
+    from apps.coupon.pagination import CouponPagination
+
+    request = Request(APIRequestFactory().get("/", {"page_size": page_size}))
+    assert CouponPagination().get_page_size(request) == expected

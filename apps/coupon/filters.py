@@ -4,6 +4,18 @@ from .models import Coupon
 
 
 class CouponFilter(django_filters.FilterSet):
+    code = django_filters.CharFilter(lookup_expr="iexact")
+    is_deleted = django_filters.BooleanFilter(
+        field_name="deleted_at", lookup_expr="isnull", exclude=True
+    )
+    expired_at_after = django_filters.DateFilter(
+        field_name="expired_at", lookup_expr="gte"
+    )
+    expired_at_before = django_filters.DateFilter(
+        field_name="expired_at", lookup_expr="lte"
+    )
+    value_min = django_filters.NumberFilter(field_name="value", lookup_expr="gte")
+    value_max = django_filters.NumberFilter(field_name="value", lookup_expr="lte")
     is_global = django_filters.BooleanFilter(field_name="is_global")
     coupon_type = django_filters.CharFilter(
         field_name="coupon_type", lookup_expr="iexact"

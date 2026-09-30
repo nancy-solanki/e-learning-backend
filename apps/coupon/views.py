@@ -9,6 +9,7 @@ from rest_framework.views import APIView
 from apps.course.models import Course
 
 from .filters import CouponFilter
+from .pagination import CouponPagination
 from .serializers import CouponSerializer
 from .service import CouponService
 
@@ -59,6 +60,7 @@ class CouponViewSet(viewsets.ModelViewSet):
 
     permission_classes = [IsAuthenticated, IsInstructorOrReadOnly]
     serializer_class = CouponSerializer
+    pagination_class = CouponPagination
     filter_backends = (
         DjangoFilterBackend,
         filters.OrderingFilter,
@@ -66,11 +68,11 @@ class CouponViewSet(viewsets.ModelViewSet):
     )
     filterset_class = CouponFilter
     search_fields = ("code", "course__title", "course__short_description")
-    ordering_fields = ("created_at", "expired_at", "value", "limit", "used")
-    ordering = ("-created_at",)
+    ordering_fields = ("code", "created_at", "expired_at", "value", "limit", "used")
+    ordering = ("-created_at", "-id")
 
     def get_queryset(self):
-        return CouponService.get_coupons(self.request.user)
+        return CouponService.get_coupons(self.request.user).select_related("course")
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
