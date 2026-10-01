@@ -1,10 +1,13 @@
+from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
-from rest_framework import status, viewsets
+from rest_framework import filters, status, viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.core.permission import IsSuperuserOrReadOnly
 
+from .filters import LocalizationFilter
+from .pagination import LocalizationPagination
 from .serializers import LocalizationSerializer
 from .service import LocalizationService
 
@@ -13,7 +16,7 @@ from .service import LocalizationService
     list=extend_schema(
         tags=["Localization"],
         description=(
-            "List all localizations. Superusers see all, other authenticated users "
+            "List all localizations. Superusers and admins see all, other authenticated users "
             "see only active ones."
         ),
     ),
@@ -22,15 +25,15 @@ from .service import LocalizationService
     ),
     create=extend_schema(
         tags=["Localization"],
-        description="Create a new localization. Only superusers can create.",
+        description="Create a new localization. Only superusers and admins can create.",
     ),
     update=extend_schema(
         tags=["Localization"],
-        description="Update a localization. Only superusers can update.",
+        description="Update a localization. Only superusers and admins can update.",
     ),
     partial_update=extend_schema(
         tags=["Localization"],
-        description="Partially update a localization. Only superusers can update.",
+        description="Partially update a localization. Only superusers and admins can update.",
     ),
     destroy=extend_schema(
         tags=["Localization"],
@@ -40,6 +43,16 @@ from .service import LocalizationService
 class LocalizationViewSet(viewsets.ModelViewSet):
     permission_classes = [IsSuperuserOrReadOnly, IsAuthenticated]
     serializer_class = LocalizationSerializer
+    filter_backends = (
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    )
+    filterset_class = LocalizationFilter
+    pagination_class = LocalizationPagination
+    search_fields = ("language_name", "country")
+    ordering_fields = ("language_name", "country", "created_at", "updated_at")
+    ordering = ("-created_at", "-id")
 
     def get_queryset(self, *args, **kwargs):
         return LocalizationService.get_queryset_for_user(self.request.user)
@@ -48,9 +61,7 @@ class LocalizationViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         LocalizationService.toggle_localization_status(instance)
         if instance.is_deleted:
-            return Response(
-                {"message": "Deleted successfully"}, status=status.HTTP_204_NO_CONTENT
-            )
+            return Response(status=status.HTTP_204_NO_CONTENT)
         return Response(
             {"message": "Activated successfully"}, status=status.HTTP_200_OK
         )
