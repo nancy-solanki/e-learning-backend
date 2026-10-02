@@ -12,10 +12,16 @@ from apps.auth.views import (
     UserPasswordResetView,
     UserRegistrationView,
 )
+from apps.users.invitations import AcceptInvitationView
 
 app_name = "auth"
 
 urlpatterns = [
+    path(
+        "accept-invite/<uid>/<token>/",
+        AcceptInvitationView.as_view(),
+        name="accept-invite",
+    ),
     path("sign-up/", UserRegistrationView.as_view(), name="sign-up"),
     path("sign-in/", TokenObtainPairView.as_view(), name="sign-in"),
     path("staff/sign-in/", StaffSignInView.as_view(), name="staff-sign-in"),

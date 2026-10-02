@@ -1,0 +1,12 @@
+{% extends "emails/base_email.html" %}
+{% block title %}Your Learnify invitation{% endblock %}
+{% block content %}
+<h1>You are invited to Learnify</h1>
+<p>An administrator has invited you to Learnify. Choose your own password to activate your account.</p>
+<div class="button-wrap"><a href="{{ link }}" class="button">Activate account</a></div>
+<div class="link-box">
+  <p class="link-label">If the button does not work</p>
+  <a href="{{ link }}" class="link">{{ link }}</a>
+</div>
+<p class="note">This link expires. If it no longer works, ask your administrator to resend your invitation. If you were not expecting this invitation, you can ignore this email.</p>
+{% endblock %}

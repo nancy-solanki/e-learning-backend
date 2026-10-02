@@ -49,8 +49,9 @@ DEBUG = env_bool("DEBUG", False)
 
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS")
 
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+ADMIN_URL = os.getenv("ADMIN_URL", "http://localhost:3000")
 
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3001")
 
 # ---------------------------------------------------------------------------
 # Application definition

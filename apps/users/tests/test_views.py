@@ -200,6 +200,20 @@ class TestUserAdminActions:
         user.refresh_from_db()
         assert user.status == "AC"
 
+    @pytest.mark.parametrize("is_superuser", [True, False])
+    def test_cannot_suspend_own_account(self, api_client, is_superuser):
+        admin = UserFactory(status="AC", is_superuser=is_superuser)
+        admin.groups.add(Group.objects.get_or_create(name="admin")[0])
+        api_client.force_authenticate(admin)
+
+        response = api_client.put(f"/api/v1/users/{admin.pk}/modify_user_status/")
+
+        assert response.status_code == 400
+        assert response.data == {"error": "Cannot suspend your own account"}
+        admin.refresh_from_db()
+        assert admin.status == "AC"
+        assert admin.is_active
+
     def test_pending_status_returns_400(self, admin_client):
         user = UserFactory(status="PD")
         response = admin_client.put(f"/api/v1/users/{user.pk}/modify_user_status/")

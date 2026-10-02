@@ -92,6 +92,11 @@ class UserViewSet(ModelViewSet):
     @action(["put"], detail=True)
     def modify_user_status(self, request, *args, **kwargs):
         instance = self.get_object()
+        if instance.pk == request.user.pk:
+            return Response(
+                {"error": "Cannot suspend your own account"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         try:
             message = UserService.toggle_status(instance)
             return Response({"message": message}, status=status.HTTP_200_OK)
