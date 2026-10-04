@@ -1,4 +1,5 @@
 from django.http import Http404
+from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import filters, status, viewsets
 from rest_framework.generics import ListAPIView
@@ -8,10 +9,33 @@ from rest_framework.response import Response
 from apps.category.models import Category
 from apps.core.permission import IsInstructorOrAdmin, IsSuperuserOrReadOnly
 
+from .filters import CourseFilter, ManagementCourseFilter
 from .serializers import CourseSerializer, FilteredCourseSerializer
 from .service import CourseService
 
 # Create your views here.
+
+
+class CourseFilteringMixin:
+    search_fields = [
+        "title",
+        "short_description",
+        "long_description",
+        "categories__title",
+        "tags__name",
+        "instructor__first_name",
+        "instructor__last_name",
+        "requirements",
+        "learn_description_points",
+    ]
+    filter_backends = (
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    )
+    filterset_class = CourseFilter
+    ordering_fields = ("title", "price", "created_at", "updated_at")
+    ordering = ("-created_at", "-id")
 
 
 @extend_schema_view(
@@ -26,17 +50,9 @@ from .service import CourseService
         tags=["Course"], description="Retrieve a specific course by ID."
     ),
 )
-class CourseViewSet(viewsets.ModelViewSet):
+class CourseViewSet(CourseFilteringMixin, viewsets.ModelViewSet):
     permission_classes = (IsSuperuserOrReadOnly,)
     serializer_class = FilteredCourseSerializer
-    search_fields = [
-        "title",
-        "short_description",
-        "long_description",
-        "requirements",
-        "learn_description_points",
-    ]
-    filter_backends = (filters.SearchFilter,)
     lookup_field = "slug"
     http_method_names = ["get", "head", "options"]
 
@@ -55,9 +71,8 @@ class CourseViewSet(viewsets.ModelViewSet):
         ),
     ),
 )
-class CourseByCategoryView(ListAPIView):
+class CourseByCategoryView(CourseFilteringMixin, ListAPIView):
     serializer_class = FilteredCourseSerializer
-    filter_backends = ()
     permission_classes = [AllowAny]
 
     def get_queryset(self):
@@ -95,9 +110,10 @@ class CourseByCategoryView(ListAPIView):
         description="Delete or restore a course. Toggles the deleted status.",
     ),
 )
-class AllCourseViewSet(viewsets.ModelViewSet):
+class AllCourseViewSet(CourseFilteringMixin, viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsInstructorOrAdmin]
     serializer_class = CourseSerializer
+    filterset_class = ManagementCourseFilter
 
     def get_queryset(self, *args, **kwargs):
         return CourseService.get_queryset_for_user(self.request.user)

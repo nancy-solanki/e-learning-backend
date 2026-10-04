@@ -79,3 +79,94 @@ def test_admin_can_restore(client, course):
     assert client.delete(MANAGE + f"{course.pk}/").status_code == 200
     course.refresh_from_db()
     assert not course.is_deleted
+
+
+@pytest.mark.parametrize("endpoint", [PUBLIC, "category", MANAGE])
+def test_combined_course_filters(client, instructor, endpoint):
+    from apps.course.models import Tag
+
+    category = CategoryFactory()
+    tag = Tag.objects.create(name="Web development")
+    matching = CourseFactory(
+        instructor=instructor,
+        title="Django basics",
+        status="published",
+        price=100,
+        is_best_seller=True,
+    )
+    matching.categories.add(category)
+    matching.tags.add(tag)
+    other = CourseFactory(instructor=instructor, status="published", price=200)
+    other.categories.add(category)
+    if endpoint == MANAGE:
+        client.force_authenticate(instructor)
+    elif endpoint == "category":
+        endpoint = PUBLIC + f"category/{category.slug}/"
+    response = client.get(
+        endpoint,
+        {
+            "search": "django",
+            "category": str(category.pk),
+            "category_slug": category.slug,
+            "tag": str(tag.pk),
+            "tag_slug": tag.slug,
+            "instructor": str(instructor.pk),
+            "price_min": 100,
+            "price_max": 100,
+            "is_free": "false",
+            "is_best_seller": "true",
+        },
+    )
+    assert response.status_code == 200, response.data
+    assert [row["id"] for row in response.data["results"]] == [str(matching.pk)]
+
+
+def test_filters_preserve_public_visibility(client):
+    published = CourseFactory(status="published", is_free=True)
+    CourseFactory(status="draft", is_free=True)
+    deleted = CourseFactory(status="published", is_free=True)
+    deleted.soft_delete()
+    inactive = CourseFactory(status="published", is_free=True)
+    inactive.instructor.status = "IA"
+    inactive.instructor.save()
+    response = client.get(PUBLIC, {"is_free": "true"})
+    assert [row["id"] for row in response.data["results"]] == [str(published.pk)]
+
+
+def test_management_status_search_preserves_ownership(client, instructor):
+    own = CourseFactory(instructor=instructor, status="draft", title="Django")
+    CourseFactory(status="draft", title="Django")
+    CourseFactory(instructor=instructor, status="published", title="Django")
+    client.force_authenticate(instructor)
+    response = client.get(MANAGE, {"status": "draft", "search": "Django"})
+    assert [row["id"] for row in response.data["results"]] == [str(own.pk)]
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"category": "invalid"},
+        {"tag": "invalid"},
+        {"instructor": "invalid"},
+        {"price_min": "invalid"},
+    ],
+)
+def test_invalid_course_filters(client, params):
+    assert client.get(PUBLIC, params).status_code == 400
+
+
+def test_related_search_has_no_duplicates_and_supports_ordering(client):
+    first = CourseFactory(status="published", price=10)
+    second = CourseFactory(status="published", price=20)
+    categories = [
+        CategoryFactory(title="Web design"),
+        CategoryFactory(title="Web apps"),
+    ]
+    first.categories.add(*categories)
+    second.categories.add(*categories)
+    response = client.get(PUBLIC, {"search": "web", "ordering": "-price"})
+    assert response.data["count"] == 2
+    assert [row["id"] for row in response.data["results"]] == [
+        str(second.pk),
+        str(first.pk),
+    ]
