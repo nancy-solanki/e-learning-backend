@@ -1,6 +1,7 @@
 from django.http import Http404
+from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
-from rest_framework import status, viewsets
+from rest_framework import filters, status, viewsets
 from rest_framework.generics import ListAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -8,10 +9,21 @@ from rest_framework.response import Response
 from apps.core.permission import IsInstructorOrAdmin
 from apps.course.models import Course
 
+from .filters import SectionFilter
 from .serializers import FilteredSectionSerializer, SectionSerializer
 from .service import SectionService
 
-# Create your views here
+
+class SectionFilteringMixin:
+    filter_backends = (
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    )
+    filterset_class = SectionFilter
+    search_fields = ("title", "description", "course__title")
+    ordering_fields = ("order", "title", "created_at", "updated_at")
+    ordering = ("order", "-created_at", "id")
 
 
 @extend_schema_view(
@@ -23,7 +35,7 @@ from .service import SectionService
         tags=["Section"], description="Retrieve a specific published section by ID."
     ),
 )
-class SectionViewSet(viewsets.ModelViewSet):
+class SectionViewSet(SectionFilteringMixin, viewsets.ModelViewSet):
     permission_classes = [AllowAny]
     queryset = SectionService.get_public_queryset()
     serializer_class = FilteredSectionSerializer
@@ -51,7 +63,7 @@ class SectionViewSet(viewsets.ModelViewSet):
         tags=["Section"], description="Toggle the soft delete status of a section."
     ),
 )
-class AllSectionViewSet(viewsets.ModelViewSet):
+class AllSectionViewSet(SectionFilteringMixin, viewsets.ModelViewSet):
     permission_classes = [IsInstructorOrAdmin, IsAuthenticated]
     serializer_class = SectionSerializer
 
@@ -77,9 +89,8 @@ class AllSectionViewSet(viewsets.ModelViewSet):
     tags=["Section"],
     description="Retrieve all sections belonging to a specific course slug.",
 )
-class SectionByCourseView(ListAPIView):
+class SectionByCourseView(SectionFilteringMixin, ListAPIView):
     serializer_class = SectionSerializer
-    filter_backends = ()
     permission_classes = [AllowAny]
 
     def get_queryset(self):

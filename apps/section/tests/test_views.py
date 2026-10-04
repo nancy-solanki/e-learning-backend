@@ -69,3 +69,99 @@ def test_admin_restore(client, section):
     assert client.delete(MANAGE + f"{section.pk}/").status_code == 200
     section.refresh_from_db()
     assert not section.is_deleted
+
+
+@pytest.mark.parametrize("endpoint", [PUBLIC, MANAGE, "course"])
+@pytest.mark.parametrize(
+    "parameter", ["search", "course", "course_slug", "instructor", "status"]
+)
+def test_section_search_and_filters(client, instructor, endpoint, parameter):
+    matching = SectionFactory(
+        course__instructor=instructor, title="Python basics", status="published"
+    )
+    other = SectionFactory(status="published", title="Java basics")
+    if endpoint == MANAGE:
+        client.force_authenticate(instructor)
+        other.instructor = instructor
+        other.save()
+    elif endpoint == "course":
+        endpoint = PUBLIC + f"course/{matching.course.slug}/"
+    values = {
+        "search": "pYtHoN",
+        "course": str(matching.course_id),
+        "course_slug": matching.course.slug.upper(),
+        "instructor": str(instructor.pk),
+        "status": "published",
+    }
+    if parameter == "status":
+        other.status = "draft"
+        other.save()
+    response = client.get(endpoint, {parameter: values[parameter]})
+    assert response.status_code == 200, response.data
+    expected = [str(matching.pk)]
+    if endpoint == MANAGE and parameter == "instructor":
+        expected.append(str(other.pk))
+    assert sorted(row["id"] for row in response.data["results"]) == sorted(expected)
+
+
+@pytest.mark.parametrize("field", ["title", "description", "course"])
+def test_section_search_fields(client, field):
+    section = SectionFactory(status="published")
+    if field == "course":
+        section.course.title = "Unique search phrase"
+        section.course.save()
+    else:
+        setattr(section, field, "Unique search phrase")
+        section.save()
+    SectionFactory(status="published")
+    response = client.get(PUBLIC, {"search": "unique search"})
+    assert [row["id"] for row in response.data["results"]] == [str(section.pk)]
+    assert client.get(PUBLIC, {"search": "missing"}).data["count"] == 0
+
+
+def test_combined_filters_and_course_scope(client, section):
+    section.title = "Python"
+    section.save()
+    SectionFactory(course=section.course, title="Java")
+    foreign = SectionFactory(title="Python")
+    endpoint = PUBLIC + f"course/{section.course.slug}/"
+    response = client.get(endpoint, {"search": "python", "status": "draft"})
+    assert [row["id"] for row in response.data["results"]] == [str(section.pk)]
+    assert client.get(endpoint, {"course": str(foreign.course_id)}).data["count"] == 0
+
+
+def test_filters_preserve_section_visibility(client, instructor):
+    visible = SectionFactory(status="published", course__instructor=instructor)
+    SectionFactory(status="draft", course=visible.course)
+    deleted = SectionFactory(status="published", course=visible.course)
+    deleted.soft_delete()
+    inactive = SectionFactory(status="published")
+    inactive.instructor.status = "IA"
+    inactive.instructor.save()
+    response = client.get(PUBLIC, {"search": "Introduction"})
+    assert [row["id"] for row in response.data["results"]] == [str(visible.pk)]
+    assert client.get(PUBLIC, {"status": "draft"}).data["count"] == 0
+    client.force_authenticate(instructor)
+    response = client.get(MANAGE, {"instructor": str(inactive.instructor_id)})
+    assert response.data["count"] == 0
+
+
+@pytest.mark.parametrize("parameter", ["course", "instructor", "status"])
+def test_invalid_section_filters(client, parameter):
+    assert client.get(PUBLIC, {parameter: "invalid"}).status_code == 400
+
+
+def test_section_ordering(client):
+    later = SectionFactory(status="published", order=2, title="Alpha")
+    earlier = SectionFactory(status="published", order=1, title="Beta")
+    response = client.get(PUBLIC)
+    assert [row["id"] for row in response.data["results"]] == [
+        str(earlier.pk),
+        str(later.pk),
+    ]
+    for ordering in ("-order", "title"):
+        response = client.get(PUBLIC, {"ordering": ordering})
+        assert [row["id"] for row in response.data["results"]] == [
+            str(later.pk),
+            str(earlier.pk),
+        ]
