@@ -1,15 +1,29 @@
 from django.http import Http404
+from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
-from rest_framework import status, viewsets
+from rest_framework import filters, status, viewsets
 from rest_framework.generics import ListAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from apps.core.permission import IsInstructorOrAdmin
 
+from .filters import LectureFilter
 from .repository import LectureRepository
 from .serializers import LectureSerializer
 from .service import LectureService
+
+
+class LectureFilteringMixin:
+    filter_backends = (
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    )
+    filterset_class = LectureFilter
+    search_fields = ("title", "description", "course__title", "section__title")
+    ordering_fields = ("order", "title", "created_at", "updated_at")
+    ordering = ("order", "-created_at", "id")
 
 
 @extend_schema_view(
@@ -21,7 +35,7 @@ from .service import LectureService
         tags=["Lecture"], description="Retrieve a specific lecture by its ID."
     ),
 )
-class LectureViewSet(viewsets.ModelViewSet):
+class LectureViewSet(LectureFilteringMixin, viewsets.ModelViewSet):
     """
     ViewSet for public-facing lecture listing and detail.
     """
@@ -54,7 +68,7 @@ class LectureViewSet(viewsets.ModelViewSet):
         description="Toggle deletion status (soft delete/restore) for a lecture.",
     ),
 )
-class AllLectureViewSet(viewsets.ModelViewSet):
+class AllLectureViewSet(LectureFilteringMixin, viewsets.ModelViewSet):
     """
     ViewSet for administrator and instructor to manage all lectures.
     """
@@ -89,13 +103,12 @@ class AllLectureViewSet(viewsets.ModelViewSet):
         description="Retrieve all lectures belonging to a specific section slug.",
     ),
 )
-class LectureBySectionView(ListAPIView):
+class LectureBySectionView(LectureFilteringMixin, ListAPIView):
     """
     API View to retrieve lectures associated with a specific section.
     """
 
     serializer_class = LectureSerializer
-    filter_backends = ()
     permission_classes = [AllowAny]
 
     def get_queryset(self):
