@@ -1,20 +1,56 @@
+from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
-from rest_framework import generics, mixins, status
+from rest_framework import filters, generics, mixins, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .filters import OrderFilter
 from .serializers import OrderSerializer
 from .service import OrderService
+
+
+class OrderFilteringMixin:
+    filter_backends = (
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    )
+    filterset_class = OrderFilter
+    search_fields = (
+        "id",
+        "course__title",
+        "user__username",
+        "user__first_name",
+        "user__last_name",
+        "user__email",
+        "instructor__username",
+        "instructor__first_name",
+        "instructor__last_name",
+        "instructor__email",
+        "coupon__code",
+    )
+    ordering_fields = ("created_at", "total_paid")
+    ordering = ("-created_at",)
+
+
+ORDER_FILTER_DESCRIPTION = (
+    " Filter by status, is_free, course/user/instructor/coupon UUID, "
+    "total_paid_min/max, or inclusive creation dates "
+    "(created_at_after/before). Search by order ID, course title, username, "
+    "name, email, or coupon code. Order by created_at or total_paid "
+    "(prefix with '-' for descending)."
+)
 
 
 @extend_schema_view(
     get=extend_schema(
         tags=["Order"],
-        description="Retrieve a list of orders for the authenticated user.",
+        description="Retrieve a list of orders for the authenticated user."
+        + ORDER_FILTER_DESCRIPTION,
     ),
 )
-class OrderView(mixins.ListModelMixin, generics.GenericAPIView):
+class OrderView(OrderFilteringMixin, mixins.ListModelMixin, generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = OrderSerializer
 
@@ -44,10 +80,13 @@ class SingleOrderView(mixins.RetrieveModelMixin, generics.GenericAPIView):
 @extend_schema_view(
     get=extend_schema(
         tags=["Order (Instructor)"],
-        description="Retrieve a list of orders for courses taught by the authenticated instructor.",
+        description="Retrieve a list of orders for courses taught by the authenticated instructor."
+        + ORDER_FILTER_DESCRIPTION,
     ),
 )
-class OrderInstructorView(mixins.ListModelMixin, generics.GenericAPIView):
+class OrderInstructorView(
+    OrderFilteringMixin, mixins.ListModelMixin, generics.GenericAPIView
+):
     permission_classes = [IsAuthenticated]
     serializer_class = OrderSerializer
 
