@@ -10,27 +10,7 @@ from .serializers import EnrollSerializer
 from .service import EnrollService
 
 
-@extend_schema_view(
-    list=extend_schema(
-        tags=["Enrollment"],
-        description=(
-            "List all enrollments based on user role. Instructors see enrollments "
-            "for their courses, regular users see their own. Supports search and "
-            "filtering by course."
-        ),
-    ),
-    retrieve=extend_schema(
-        tags=["Enrollment"], description="Retrieve a specific enrollment by its UUID."
-    ),
-)
-class EnrollViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet for listing and retrieving enrollments.
-    """
-
-    permission_classes = [IsAuthenticated]
-    serializer_class = EnrollSerializer
-    http_method_names = ["get", "head", "options"]
+class EnrollmentFilteringMixin:
     filter_backends = (
         DjangoFilterBackend,
         filters.OrderingFilter,
@@ -38,6 +18,7 @@ class EnrollViewSet(viewsets.ModelViewSet):
     )
     filterset_class = EnrollFilter
     search_fields = (
+        "user__username",
         "user__first_name",
         "user__last_name",
         "user__email",
@@ -45,6 +26,31 @@ class EnrollViewSet(viewsets.ModelViewSet):
     )
     ordering_fields = ("created_at", "user__first_name", "user__last_name")
     ordering = ("-created_at",)
+
+
+@extend_schema_view(
+    list=extend_schema(
+        tags=["Enrollment"],
+        description=(
+            "List all enrollments based on user role. Instructors see enrollments "
+            "for their courses, regular users see their own. Supports search and "
+            "filtering by course UUID, course slug, user UUID, and inclusive "
+            "creation dates (created_at_after / created_at_before). Search by "
+            "username, name, email, or course title."
+        ),
+    ),
+    retrieve=extend_schema(
+        tags=["Enrollment"], description="Retrieve a specific enrollment by its UUID."
+    ),
+)
+class EnrollViewSet(EnrollmentFilteringMixin, viewsets.ModelViewSet):
+    """
+    ViewSet for listing and retrieving enrollments.
+    """
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = EnrollSerializer
+    http_method_names = ["get", "head", "options"]
 
     def get_queryset(self):
         """
@@ -56,17 +62,21 @@ class EnrollViewSet(viewsets.ModelViewSet):
 @extend_schema_view(
     get=extend_schema(
         tags=["Enrollment"],
-        description="Retrieve all enrollments associated with a specific course slug.",
+        description=(
+            "Retrieve active enrollments for a published course by slug. Supports "
+            "search by username, name, email, or course title; filtering by course "
+            "UUID, course slug, user UUID, and inclusive creation dates "
+            "(created_at_after / created_at_before); and ordering."
+        ),
     ),
 )
-class EnrollByCourseView(ListAPIView):
+class EnrollByCourseView(EnrollmentFilteringMixin, ListAPIView):
     """
     API View to retrieve enrollments associated with a specific course slug.
     Only active enrollments for published courses are returned.
     """
 
     serializer_class = EnrollSerializer
-    filter_backends = ()
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):

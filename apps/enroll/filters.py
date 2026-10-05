@@ -1,31 +1,21 @@
 import django_filters
-from django.db.models import Q
 
 from .models import Enroll
 
 
 class EnrollFilter(django_filters.FilterSet):
-    """
-    Filter for enrollments with support for searching by user name/email
-    and filtering by course.
-    """
-
-    search = django_filters.CharFilter(method="filter_search")
     course = django_filters.UUIDFilter(field_name="course__id")
+    user = django_filters.UUIDFilter(field_name="user__id")
+    course_slug = django_filters.CharFilter(
+        field_name="course__slug", lookup_expr="iexact"
+    )
+    created_at_after = django_filters.DateFilter(
+        field_name="created_at", lookup_expr="date__gte"
+    )
+    created_at_before = django_filters.DateFilter(
+        field_name="created_at", lookup_expr="date__lte"
+    )
 
     class Meta:
         model = Enroll
-        fields = ["course"]
-
-    def filter_search(self, queryset, name, value):
-        """
-        Search by user first name, last name, email, or course title.
-        """
-        if value:
-            return queryset.filter(
-                Q(user__first_name__icontains=value)
-                | Q(user__last_name__icontains=value)
-                | Q(user__email__icontains=value)
-                | Q(course__title__icontains=value)
-            )
-        return queryset
+        fields = ["course", "user", "course_slug"]
