@@ -4,6 +4,7 @@ from rest_framework import filters, generics, mixins
 from rest_framework.permissions import IsAuthenticated
 
 from .filters import TransactionFilter
+from .models import Transaction
 from .serializers import TransactionSerializer
 from .service import TransactionService
 
@@ -23,6 +24,7 @@ from .service import TransactionService
 class TransactionView(mixins.ListModelMixin, generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = TransactionSerializer
+    queryset = Transaction.objects.none()
     filter_backends = (
         DjangoFilterBackend,
         filters.SearchFilter,
@@ -49,6 +51,7 @@ class TransactionView(mixins.ListModelMixin, generics.GenericAPIView):
 class SingleTransactionView(mixins.RetrieveModelMixin, generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = TransactionSerializer
+    queryset = Transaction.objects.none()
 
     def get_queryset(self):
         return TransactionService.get_user_transactions(self.request.user)

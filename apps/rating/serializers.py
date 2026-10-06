@@ -1,13 +1,13 @@
 from rest_framework import serializers
 
 from apps.enroll.models import Enroll
-from apps.users.serializers import UserSerializer
+from apps.users.serializers import PublicUserSerializer
 
 from .models import Rating
 
 
 class RatingSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
+    user = PublicUserSerializer(read_only=True)
     course_title = serializers.CharField(source="course.title", read_only=True)
 
     class Meta:

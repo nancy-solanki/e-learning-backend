@@ -5,8 +5,10 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.core.permission import IsSuperuserOrReadOnly
+from apps.core.schema import MessageSerializer
 
 from .filters import LocalizationFilter
+from .models import Localization
 from .pagination import LocalizationPagination
 from .serializers import LocalizationSerializer
 from .service import LocalizationService
@@ -36,6 +38,7 @@ from .service import LocalizationService
         description="Partially update a localization. Only superusers and admins can update.",
     ),
     destroy=extend_schema(
+        responses={200: MessageSerializer, 204: None},
         tags=["Localization"],
         description="Delete or restore a localization. Toggles the deleted status.",
     ),
@@ -43,6 +46,7 @@ from .service import LocalizationService
 class LocalizationViewSet(viewsets.ModelViewSet):
     permission_classes = [IsSuperuserOrReadOnly, IsAuthenticated]
     serializer_class = LocalizationSerializer
+    queryset = Localization.objects.none()
     filter_backends = (
         DjangoFilterBackend,
         filters.SearchFilter,

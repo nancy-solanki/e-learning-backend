@@ -7,8 +7,10 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from apps.core.permission import IsInstructorOrAdmin
+from apps.core.schema import MessageSerializer
 
 from .filters import LectureFilter
+from .models import Lecture
 from .repository import LectureRepository
 from .serializers import LectureSerializer
 from .service import LectureService
@@ -64,6 +66,7 @@ class LectureViewSet(LectureFilteringMixin, viewsets.ModelViewSet):
         tags=["Lecture"], description="Partially update a lecture."
     ),
     destroy=extend_schema(
+        responses={200: MessageSerializer},
         tags=["Lecture"],
         description="Toggle deletion status (soft delete/restore) for a lecture.",
     ),
@@ -75,6 +78,8 @@ class AllLectureViewSet(LectureFilteringMixin, viewsets.ModelViewSet):
 
     permission_classes = [IsInstructorOrAdmin, IsAuthenticated]
     serializer_class = LectureSerializer
+
+    queryset = Lecture.objects.none()
 
     def get_queryset(self):
         if self.request.user.is_admin:
@@ -110,6 +115,8 @@ class LectureBySectionView(LectureFilteringMixin, ListAPIView):
 
     serializer_class = LectureSerializer
     permission_classes = [AllowAny]
+
+    queryset = Lecture.objects.none()
 
     def get_queryset(self):
         lectures = LectureRepository.get_lectures_by_section_slug(self.kwargs["slug"])

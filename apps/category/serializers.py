@@ -1,10 +1,14 @@
 from django.utils.text import slugify
 from rest_framework import serializers
 
+from apps.common.serializers import FileSerializer
+
 from .models import Category
 
 
 class CategorySerializer(serializers.ModelSerializer):
+    thumbnail = FileSerializer(read_only=True, allow_null=True)
+
     class Meta:
         """
         Metaclass for the CategorySerializer

@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import filters, status
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
@@ -9,15 +10,33 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
 from apps.core.permission import IsSuperuser
+from apps.core.schema import ErrorSerializer, MessageSerializer
 from apps.users.filters import UserFilter
 
 from .repository import UserRepository
+from .schema import UserProfileResponseSerializer, UserResponseSerializer
 from .serializers import UserProfileSerializer, UserSerializer
 from .services import UserService
 
 User = get_user_model()
 
 
+@extend_schema_view(
+    get=extend_schema(
+        tags=["Users"],
+        description="Retrieve only the authenticated user's profile.",
+        responses=UserProfileResponseSerializer,
+    ),
+    put=extend_schema(
+        tags=["Users"],
+        description=(
+            "Update the authenticated user's profile. All fields are "
+            "optional; omitted values are retained."
+        ),
+        request=UserProfileSerializer(partial=True),
+        responses=UserProfileResponseSerializer,
+    ),
+)
 class UserProfileView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = UserProfileSerializer
@@ -35,6 +54,18 @@ class UserProfileView(APIView):
         return Response({**serializer.data}, status=status.HTTP_200_OK)
 
 
+@extend_schema_view(
+    post=extend_schema(
+        tags=["Users"],
+        description="Become an instructor as the authenticated user.",
+        request=None,
+        responses={
+            200: MessageSerializer,
+            400: MessageSerializer,
+            500: ErrorSerializer,
+        },
+    )
+)
 class BecomeInstructorView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -53,6 +84,39 @@ class BecomeInstructorView(APIView):
             )
 
 
+@extend_schema_view(
+    list=extend_schema(
+        tags=["Users"],
+        description="List active user records. Administrator access required.",
+        responses=UserResponseSerializer(many=True),
+    ),
+    retrieve=extend_schema(
+        tags=["Users"],
+        description="Retrieve an account. Administrator access required.",
+        responses=UserResponseSerializer,
+    ),
+    update=extend_schema(
+        tags=["Users"],
+        description="Update an account. Administrator access required.",
+        responses=UserResponseSerializer,
+    ),
+    destroy=extend_schema(
+        tags=["Users"],
+        description="Soft-delete an account. Administrators cannot delete themselves.",
+    ),
+    modify_admin_privileges=extend_schema(
+        tags=["Users"],
+        description="Toggle another user's admin role. Administrator access required.",
+        request=None,
+        responses={200: MessageSerializer, 400: ErrorSerializer, 500: ErrorSerializer},
+    ),
+    modify_user_status=extend_schema(
+        tags=["Users"],
+        description="Toggle another user's status. Administrator access required.",
+        request=None,
+        responses={200: MessageSerializer, 400: ErrorSerializer, 500: ErrorSerializer},
+    ),
+)
 class UserViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated, IsSuperuser]
     serializer_class = UserSerializer

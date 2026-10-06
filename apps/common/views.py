@@ -12,6 +12,8 @@ from apps.order.models import Order
 from apps.users.models import User
 from apps.wallet.models import Wallet
 
+from .schema import DashboardChartsSerializer, DashboardStatsSerializer
+
 
 @extend_schema(
     tags=["Admin Dashboard"],
@@ -19,7 +21,7 @@ from apps.wallet.models import Wallet
         "Returns aggregate statistics for the admin dashboard: "
         "total users, instructors, courses, enrollments, and revenue figures."
     ),
-    responses={200: dict},
+    responses={200: DashboardStatsSerializer},
 )
 class AdminDashboardStatsView(APIView):
     permission_classes = (IsSuperuser,)
@@ -73,7 +75,7 @@ class AdminDashboardStatsView(APIView):
         "daily order/enrollment counts and daily new user registrations "
         "for the last 30 days. Dates are in YYYY-MM-DD format."
     ),
-    responses={200: dict},
+    responses={200: DashboardChartsSerializer},
 )
 class AdminDashboardChartsView(APIView):
     permission_classes = (IsSuperuser,)

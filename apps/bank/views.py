@@ -1,12 +1,18 @@
 from django_filters.rest_framework import DjangoFilterBackend
-from drf_spectacular.utils import extend_schema, extend_schema_view
+from drf_spectacular.utils import (
+    PolymorphicProxySerializer,
+    extend_schema,
+    extend_schema_view,
+)
 from rest_framework import filters, status, viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.core.permission import IsInstructorOrReadOnly
+from apps.core.schema import MessageSerializer
 
 from .filters import BankFilter
+from .models import Bank
 from .repository import BankRepository
 from .serializers import BankSerializer
 from .service import BankService
@@ -28,6 +34,14 @@ from .service import BankService
         ),
     ),
     update=extend_schema(
+        request=BankSerializer(partial=True),
+        responses={
+            200: PolymorphicProxySerializer(
+                component_name="BankUpdateResponse",
+                serializers=[BankSerializer, MessageSerializer],
+                resource_type_field_name=None,
+            )
+        },
         tags=["Bank"],
         description=(
             "Update bank account details. Use this to set an account as default by "
@@ -35,7 +49,15 @@ from .service import BankService
         ),
     ),
     partial_update=extend_schema(
-        tags=["Bank"], description="Partially update bank account details."
+        responses={
+            200: PolymorphicProxySerializer(
+                component_name="BankUpdateResponse",
+                serializers=[BankSerializer, MessageSerializer],
+                resource_type_field_name=None,
+            )
+        },
+        tags=["Bank"],
+        description="Partially update bank account details.",
     ),
     destroy=extend_schema(
         tags=["Bank"],
@@ -45,6 +67,7 @@ from .service import BankService
 class BankViewSet(viewsets.ModelViewSet):
     permission_classes = [IsInstructorOrReadOnly, IsAuthenticated]
     serializer_class = BankSerializer
+    queryset = Bank.objects.none()
     filter_backends = (
         DjangoFilterBackend,
         filters.OrderingFilter,

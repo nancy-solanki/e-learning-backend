@@ -7,7 +7,9 @@ from rest_framework.response import Response
 from apps.core.permission import IsSuperuserOrReadOnly
 
 from .filters import CategoryFilter
+from .models import Category
 from .pagination import CategoryPagination
+from .schema import CategoryUploadSerializer
 from .serializers import CategorySerializer
 from .service import CategoryService
 
@@ -15,14 +17,15 @@ from .service import CategoryService
 @extend_schema_view(
     list=extend_schema(tags=["Category"]),
     retrieve=extend_schema(tags=["Category"]),
-    create=extend_schema(tags=["Category"]),
-    update=extend_schema(tags=["Category"]),
-    partial_update=extend_schema(tags=["Category"]),
+    create=extend_schema(tags=["Category"], request=CategoryUploadSerializer),
+    update=extend_schema(tags=["Category"], request=CategoryUploadSerializer),
+    partial_update=extend_schema(tags=["Category"], request=CategoryUploadSerializer),
     destroy=extend_schema(tags=["Category"]),
 )
 class CategoryViewSet(viewsets.ModelViewSet):
     permission_classes = (IsSuperuserOrReadOnly,)
     serializer_class = CategorySerializer
+    queryset = Category.objects.none()
     lookup_field = "slug"
     filter_backends = (
         DjangoFilterBackend,

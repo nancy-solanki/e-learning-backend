@@ -21,6 +21,7 @@ from rest_framework.response import Response
 
 from apps.auth.services import generate_uid
 from apps.core.permission import IsSuperuser
+from apps.core.schema import DetailSerializer, MessageSerializer
 from apps.core.services import send_email
 
 User = get_user_model()
@@ -133,15 +134,19 @@ class InvitationResponseSerializer(serializers.Serializer):
     message = serializers.CharField()
 
 
-class MessageSerializer(serializers.Serializer):
-    message = serializers.CharField(read_only=True)
-
-
 class InviteUserView(GenericAPIView):
     permission_classes = (IsAuthenticated, IsSuperuser)
     serializer_class = InviteUserSerializer
 
-    @extend_schema(responses={201: InvitationResponseSerializer})
+    @extend_schema(
+        tags=["Users"],
+        description=(
+            "Invite a student, instructor, or admin. Administrator access "
+            "required; the recipient sets their own password via an emailed "
+            "link."
+        ),
+        responses={201: InvitationResponseSerializer, 503: DetailSerializer},
+    )
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -162,7 +167,15 @@ class ResendInvitationView(GenericAPIView):
     serializer_class = MessageSerializer
     queryset = User.objects.all()
 
-    @extend_schema(request=None, responses={200: MessageSerializer})
+    @extend_schema(
+        tags=["Users"],
+        description=(
+            "Resend a pending invitation and invalidate the previous link. "
+            "Administrator access required."
+        ),
+        request=None,
+        responses={200: MessageSerializer, 503: DetailSerializer},
+    )
     def post(self, request, pk):
         with transaction.atomic():
             self.queryset = self.queryset.select_for_update()
@@ -227,7 +240,14 @@ class AcceptInvitationView(GenericAPIView):
     authentication_classes = ()
     serializer_class = AcceptInvitationSerializer
 
-    @extend_schema(responses={200: MessageSerializer})
+    @extend_schema(
+        tags=["Authentication"],
+        description=(
+            "Accept an invitation using the emailed UID and single-use token, "
+            "and set a password."
+        ),
+        responses={200: MessageSerializer},
+    )
     def post(self, request, uid, token):
         serializer = self.get_serializer(
             data=request.data, context={"uid": uid, "token": token}

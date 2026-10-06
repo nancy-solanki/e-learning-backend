@@ -55,7 +55,7 @@ class FilteredCourseSerializer(serializers.ModelSerializer):
     thumbnail = FileSerializer(read_only=True)
     student_count = serializers.SerializerMethodField()
 
-    def get_student_count(self, obj):
+    def get_student_count(self, obj) -> int:
         return obj.enroll.count()
 
     class Meta:
@@ -92,5 +92,5 @@ class CourseSerializer(serializers.ModelSerializer):
         model = Course
         fields = "__all__"
 
-    def get_student_count(self, obj):
+    def get_student_count(self, obj) -> int:
         return obj.enroll.count()

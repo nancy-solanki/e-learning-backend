@@ -1,6 +1,7 @@
 from django.urls import include, path
 
 urlpatterns = [
+    path("dashboard/", include("apps.common.urls")),
     path("auth/", include("apps.auth.urls", namespace="auth")),
     path("users/", include("apps.users.urls", namespace="user")),
     path("category/", include("apps.category.urls", namespace="category")),

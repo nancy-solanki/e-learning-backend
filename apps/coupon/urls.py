@@ -10,5 +10,5 @@ router.register(r"management", CouponViewSet, basename="coupon-management")
 
 urlpatterns = [
     path("", include(router.urls)),
-    path("validate/<code>/", GetCoupon.as_view(), name="get-coupon"),
+    path("validate/<str:code>/", GetCoupon.as_view(), name="get-coupon"),
 ]

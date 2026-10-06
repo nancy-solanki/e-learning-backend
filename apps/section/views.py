@@ -7,9 +7,11 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from apps.core.permission import IsInstructorOrAdmin
+from apps.core.schema import MessageSerializer
 from apps.course.models import Course
 
 from .filters import SectionFilter
+from .models import Section
 from .serializers import FilteredSectionSerializer, SectionSerializer
 from .service import SectionService
 
@@ -60,12 +62,16 @@ class SectionViewSet(SectionFilteringMixin, viewsets.ModelViewSet):
         tags=["Section"], description="Partially update a section."
     ),
     destroy=extend_schema(
-        tags=["Section"], description="Toggle the soft delete status of a section."
+        responses={200: MessageSerializer, 204: None},
+        tags=["Section"],
+        description="Toggle the soft delete status of a section.",
     ),
 )
 class AllSectionViewSet(SectionFilteringMixin, viewsets.ModelViewSet):
     permission_classes = [IsInstructorOrAdmin, IsAuthenticated]
     serializer_class = SectionSerializer
+
+    queryset = Section.objects.none()
 
     def get_queryset(self, *args, **kwargs):
         return SectionService.get_queryset_for_user(self.request.user)
@@ -92,6 +98,8 @@ class AllSectionViewSet(SectionFilteringMixin, viewsets.ModelViewSet):
 class SectionByCourseView(SectionFilteringMixin, ListAPIView):
     serializer_class = SectionSerializer
     permission_classes = [AllowAny]
+
+    queryset = Section.objects.none()
 
     def get_queryset(self):
         try:

@@ -1,14 +1,14 @@
 from rest_framework import serializers
 
 from apps.course.serializers import CourseMinimalSerializer
-from apps.users.serializers import UserSerializer
+from apps.users.serializers import PublicUserSerializer
 
 from .models import Enroll
 
 
 class EnrollSerializer(serializers.ModelSerializer):
     course = CourseMinimalSerializer(read_only=True)
-    user = UserSerializer(read_only=True)
+    user = PublicUserSerializer(read_only=True)
     average_rating = serializers.FloatField(read_only=True)
     progress = serializers.SerializerMethodField(read_only=True)
 
@@ -25,7 +25,7 @@ class EnrollSerializer(serializers.ModelSerializer):
             "deleted_at",
         ]
 
-    def get_progress(self, obj):
+    def get_progress(self, obj) -> int:
         """
         Calculate progress as a percentage based on completed lectures.
         Currently returns 0 as lecture completion tracking is not yet implemented.

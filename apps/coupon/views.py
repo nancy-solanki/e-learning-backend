@@ -6,9 +6,11 @@ from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.schema import ErrorsSerializer, MessageSerializer
 from apps.course.models import Course
 
 from .filters import CouponFilter
+from .models import Coupon
 from .pagination import CouponPagination
 from .serializers import CouponSerializer
 from .service import CouponService
@@ -51,6 +53,7 @@ class IsInstructorOrReadOnly(BasePermission):
     destroy=extend_schema(
         tags=["Coupon"],
         description="Toggle deletion status (soft delete/restore) for a coupon.",
+        responses={200: MessageSerializer},
     ),
 )
 class CouponViewSet(viewsets.ModelViewSet):
@@ -60,6 +63,7 @@ class CouponViewSet(viewsets.ModelViewSet):
 
     permission_classes = [IsAuthenticated, IsInstructorOrReadOnly]
     serializer_class = CouponSerializer
+    queryset = Coupon.objects.none()
     pagination_class = CouponPagination
     filter_backends = (
         DjangoFilterBackend,
@@ -82,7 +86,9 @@ class CouponViewSet(viewsets.ModelViewSet):
 
 @extend_schema_view(
     get=extend_schema(
-        tags=["Coupon"], description="Retrieve and validate a coupon by its code."
+        tags=["Coupon"],
+        description="Retrieve and validate a coupon by its code.",
+        responses={200: CouponSerializer, 404: ErrorsSerializer},
     ),
 )
 class GetCoupon(APIView):

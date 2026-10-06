@@ -12,7 +12,7 @@ class SectionSerializer(serializers.ModelSerializer):
     # lecture = LectureSerializer(read_only=True, many=True)
     course_title = serializers.SerializerMethodField("get_course_title")
 
-    def get_course_title(self, instance):
+    def get_course_title(self, instance) -> str:
         return instance.course.title
 
     class Meta:

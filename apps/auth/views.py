@@ -3,13 +3,18 @@ from allauth.socialaccount.providers.apple.views import AppleOAuth2Adapter
 from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
 from allauth.socialaccount.providers.oauth2.client import OAuth2Client
 from dj_rest_auth.registration.views import SocialLoginView
+from dj_rest_auth.serializers import JWTSerializer
 from django.contrib.auth import get_user_model
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 
+from apps.core.schema import MessageSerializer
+
+from .schema import TokenPairSerializer
 from .serializers import (
     SendPasswordResetEmailSerializer,
     SocialLoginSerializer,
@@ -24,10 +29,26 @@ from .serializers import (
 User = get_user_model()
 
 
+@extend_schema_view(
+    post=extend_schema(
+        tags=["Authentication"],
+        description="Sign in with an account belonging exclusively to admin/instructor groups.",
+        request=StaffSignInSerializer,
+        responses={200: TokenPairSerializer},
+    )
+)
 class StaffSignInView(TokenObtainPairView):
     serializer_class = StaffSignInSerializer
 
 
+@extend_schema_view(
+    post=extend_schema(
+        tags=["Authentication"],
+        description="Exchange Google OAuth credentials for application tokens.",
+        request=SocialLoginSerializer,
+        responses={200: JWTSerializer},
+    )
+)
 class GoogleLoginView(SocialLoginView):
     permission_classes = [AllowAny]
     serializer_class = SocialLoginSerializer
@@ -35,6 +56,14 @@ class GoogleLoginView(SocialLoginView):
     client_class = OAuth2Client
 
 
+@extend_schema_view(
+    post=extend_schema(
+        tags=["Authentication"],
+        description="Exchange Apple OAuth credentials for application tokens.",
+        request=SocialLoginSerializer,
+        responses={200: JWTSerializer},
+    )
+)
 class AppleLoginView(SocialLoginView):
     permission_classes = [AllowAny]
     serializer_class = SocialLoginSerializer
@@ -42,6 +71,14 @@ class AppleLoginView(SocialLoginView):
     client_class = AppleOAuth2Client
 
 
+@extend_schema_view(
+    post=extend_schema(
+        tags=["Authentication"],
+        description="Register a student and send an account activation email.",
+        request=UserRegistrationSerializer,
+        responses={201: MessageSerializer},
+    )
+)
 class UserRegistrationView(APIView):
     permission_classes = [AllowAny]
 
@@ -57,6 +94,14 @@ class UserRegistrationView(APIView):
         )
 
 
+@extend_schema_view(
+    post=extend_schema(
+        tags=["Authentication"],
+        description="Activate an account using its emailed UID and token.",
+        request=None,
+        responses={200: MessageSerializer},
+    )
+)
 class UserActivateAccountView(APIView):
     permission_classes = [AllowAny]
 
@@ -70,6 +115,14 @@ class UserActivateAccountView(APIView):
         )
 
 
+@extend_schema_view(
+    post=extend_schema(
+        tags=["Authentication"],
+        description="Blacklist the supplied refresh token. The response has no body.",
+        request=UserLogoutSerializer,
+        responses={204: None},
+    )
+)
 class UserLogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -82,6 +135,14 @@ class UserLogoutView(APIView):
         )
 
 
+@extend_schema_view(
+    post=extend_schema(
+        tags=["Authentication"],
+        description="Change the authenticated user’s password.",
+        request=UserChangePasswordSerializer,
+        responses={200: MessageSerializer},
+    )
+)
 class UserChangePasswordView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -95,6 +156,14 @@ class UserChangePasswordView(APIView):
         )
 
 
+@extend_schema_view(
+    post=extend_schema(
+        tags=["Authentication"],
+        description="Send a password reset email for an active account.",
+        request=SendPasswordResetEmailSerializer,
+        responses={200: MessageSerializer},
+    )
+)
 class SendPasswordResetEmailView(APIView):
     permission_classes = [AllowAny]
 
@@ -109,6 +178,14 @@ class SendPasswordResetEmailView(APIView):
         )
 
 
+@extend_schema_view(
+    post=extend_schema(
+        tags=["Authentication"],
+        description="Reset a password using its emailed UID and token.",
+        request=UserPasswordResetSerializer,
+        responses={200: MessageSerializer},
+    )
+)
 class UserPasswordResetView(APIView):
     permission_classes = [AllowAny]
 

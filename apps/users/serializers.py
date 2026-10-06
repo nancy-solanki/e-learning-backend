@@ -14,7 +14,7 @@ class BaseUserSerializer(serializers.ModelSerializer):
     avatar = serializers.URLField(read_only=True)
     role = serializers.SerializerMethodField()
 
-    def get_role(self, obj):
+    def get_role(self, obj) -> list[str]:
         return [group.name for group in obj.groups.all()]
 
     def validate_full_name(self, value):
@@ -112,7 +112,7 @@ class UserSerializer(BaseUserSerializer):
             "password_changed_at",
         ]
 
-    def get_status(self, obj):
+    def get_status(self, obj) -> str:
         return obj.get_status_display()
 
     def to_representation(self, instance):
@@ -128,3 +128,17 @@ class UserSerializer(BaseUserSerializer):
             instance.last_name = names[1] if len(names) > 1 else ""
 
         return super().update(instance, validated_data)
+
+
+class PublicUserSerializer(serializers.ModelSerializer):
+    """Identity safe to embed in another user's resource representation."""
+
+    full_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ("id", "username", "first_name", "last_name", "full_name", "avatar")
+        read_only_fields = fields
+
+    def get_full_name(self, obj) -> str:
+        return f"{obj.first_name} {obj.last_name}".strip()

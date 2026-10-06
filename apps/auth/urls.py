@@ -18,7 +18,7 @@ app_name = "auth"
 
 urlpatterns = [
     path(
-        "accept-invite/<uid>/<token>/",
+        "accept-invite/<str:uid>/<str:token>/",
         AcceptInvitationView.as_view(),
         name="accept-invite",
     ),
@@ -36,12 +36,12 @@ urlpatterns = [
         name="send-reset-password-email",
     ),
     path(
-        "reset-password/<uid>/<token>/",
+        "reset-password/<str:uid>/<str:token>/",
         UserPasswordResetView.as_view(),
         name="reset-password",
     ),
     path(
-        "activate-account/<uid>/<token>/",
+        "activate-account/<str:uid>/<str:token>/",
         UserActivateAccountView.as_view(),
         name="activate-account",
     ),

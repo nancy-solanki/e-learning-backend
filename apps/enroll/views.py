@@ -1,3 +1,4 @@
+from django.db.models import Q
 from django.http import Http404
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
@@ -6,6 +7,7 @@ from rest_framework.generics import ListAPIView
 from rest_framework.permissions import IsAuthenticated
 
 from .filters import EnrollFilter
+from .models import Enroll
 from .serializers import EnrollSerializer
 from .service import EnrollService
 
@@ -50,6 +52,7 @@ class EnrollViewSet(EnrollmentFilteringMixin, viewsets.ModelViewSet):
 
     permission_classes = [IsAuthenticated]
     serializer_class = EnrollSerializer
+    queryset = Enroll.objects.none()
     http_method_names = ["get", "head", "options"]
 
     def get_queryset(self):
@@ -63,7 +66,8 @@ class EnrollViewSet(EnrollmentFilteringMixin, viewsets.ModelViewSet):
     get=extend_schema(
         tags=["Enrollment"],
         description=(
-            "Retrieve active enrollments for a published course by slug. Supports "
+            "Retrieve active enrollments for a published course by slug. Students see "
+            "only their own enrollment; the course instructor sees the roster. Supports "
             "search by username, name, email, or course title; filtering by course "
             "UUID, course slug, user UUID, and inclusive creation dates "
             "(created_at_after / created_at_before); and ordering."
@@ -77,13 +81,16 @@ class EnrollByCourseView(EnrollmentFilteringMixin, ListAPIView):
     """
 
     serializer_class = EnrollSerializer
+    queryset = Enroll.objects.none()
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         """
         Retrieve enrollments for a course by slug.
         """
-        enrollments = EnrollService.get_enrollments_by_course(self.kwargs["slug"])
+        enrollments = EnrollService.get_enrollments_by_course(
+            self.kwargs["slug"]
+        ).filter(Q(user=self.request.user) | Q(course__instructor=self.request.user))
         if not enrollments.exists():
             raise Http404
         return enrollments

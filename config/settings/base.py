@@ -242,7 +242,7 @@ REST_FRAMEWORK = {
         "rest_framework.filters.SearchFilter",
         "rest_framework.filters.OrderingFilter",
     ),
-    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_SCHEMA_CLASS": "apps.core.schema.ApplicationSchema",
     "DEFAULT_PAGINATION_CLASS": ("rest_framework.pagination.PageNumberPagination"),
     "PAGE_SIZE": 20,
 }
@@ -253,10 +253,79 @@ REST_FRAMEWORK = {
 # ---------------------------------------------------------------------------
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": os.getenv("API_TITLE", "API"),
-    "DESCRIPTION": os.getenv("API_DESCRIPTION", ""),
+    "TITLE": os.getenv("API_TITLE", "Learnify API"),
+    "DESCRIPTION": os.getenv(
+        "API_DESCRIPTION",
+        "E-learning API. Authenticate with a Bearer access token. List "
+        "endpoints support documented filters and pagination. Access "
+        "remains subject to endpoint roles and ownership; filters never "
+        "grant access to other users’ private records.",
+    ),
     "VERSION": os.getenv("API_VERSION", "1.0.0"),
+    "TAGS": [
+        {
+            "name": "Authentication",
+            "description": "Registration, OAuth/JWT sessions, invitations, and password recovery.",
+        },
+        {
+            "name": "Users",
+            "description": "Own profile and administrator-only account management.",
+        },
+        {
+            "name": "Category",
+            "description": "Public course categories; administrator-managed multipart uploads.",
+        },
+        {
+            "name": "Course",
+            "description": "Public catalog and instructor/admin course management.",
+        },
+        {
+            "name": "Section",
+            "description": "Course sections and instructor/admin management.",
+        },
+        {"name": "Lecture", "description": "Course lectures and content uploads."},
+        {
+            "name": "Enrollment",
+            "description": "Student enrollments and instructor-owned rosters.",
+        },
+        {"name": "Rating", "description": "Course feedback and instructor replies."},
+        {
+            "name": "Coupon",
+            "description": "Coupon validation and role-scoped management.",
+        },
+        {"name": "Bank", "description": "Authenticated user's bank accounts."},
+        {
+            "name": "Wallet",
+            "description": "Authenticated instructor/admin's own wallet.",
+        },
+        {"name": "Order", "description": "Authenticated user's purchases."},
+        {
+            "name": "Order (Instructor)",
+            "description": "Orders assigned to the authenticated instructor.",
+        },
+        {"name": "Payment", "description": "Payment initiation and verification."},
+        {"name": "Transaction", "description": "Authenticated user's ledger entries."},
+        {
+            "name": "Localization",
+            "description": "Languages and countries, managed by administrators.",
+        },
+        {
+            "name": "Admin Dashboard",
+            "description": "Administrator-only aggregate metrics.",
+        },
+    ],
     "SERVE_INCLUDE_SCHEMA": False,
+    "SERVE_PERMISSIONS": ["apps.core.permission.IsSuperuser"],
+    "COMPONENT_SPLIT_REQUEST": True,
+    "SCHEMA_PATH_PREFIX": r"/api/v[0-9]+",
+    "SWAGGER_UI_FAVICON_HREF": "SIDECAR",
+    "SWAGGER_UI_SETTINGS": {"deepLinking": True, "persistAuthorization": False},
+    "ENUM_NAME_OVERRIDES": {
+        "ContentStatusEnum": "apps.core.schema.content_status_choices",
+        "OrderStatusEnum": "apps.core.schema.order_status_choices",
+        "TransactionStatusEnum": "apps.core.schema.transaction_status_choices",
+        "CourseStatusEnum": "apps.core.schema.course_status_choices",
+    },
     "SWAGGER_UI_DIST": "SIDECAR",
     "REDOC_DIST": "SIDECAR",
 }

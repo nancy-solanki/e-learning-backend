@@ -7,6 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from apps.core.permission import IsOwnerOrInstructor
 
 from .filters import RatingFilter
+from .models import Rating
 from .serializers import RatingSerializer
 from .service import RatingService
 
@@ -66,6 +67,7 @@ class RatingViewSet(RatingFilteringMixin, viewsets.ModelViewSet):
 
     permission_classes = [IsAuthenticated, IsOwnerOrInstructor]
     serializer_class = RatingSerializer
+    queryset = Rating.objects.none()
 
     def get_queryset(self):
         return RatingService.get_ratings(self.request.user)
@@ -92,6 +94,7 @@ class RatingByInstructorView(RatingFilteringMixin, ListAPIView):
     """
 
     serializer_class = RatingSerializer
+    queryset = Rating.objects.none()
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):

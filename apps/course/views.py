@@ -8,8 +8,10 @@ from rest_framework.response import Response
 
 from apps.category.models import Category
 from apps.core.permission import IsInstructorOrAdmin, IsSuperuserOrReadOnly
+from apps.core.schema import MessageSerializer
 
 from .filters import CourseFilter, ManagementCourseFilter
+from .models import Course
 from .serializers import CourseSerializer, FilteredCourseSerializer
 from .service import CourseService
 
@@ -42,8 +44,8 @@ class CourseFilteringMixin:
     list=extend_schema(
         tags=["Course"],
         description=(
-            "List all courses. Superusers see all, other authenticated users "
-            "see only active ones."
+            "List courses within this endpoint’s visibility scope. Public endpoints "
+            "return published courses; management endpoints enforce instructor/admin access."
         ),
     ),
     retrieve=extend_schema(
@@ -53,6 +55,7 @@ class CourseFilteringMixin:
 class CourseViewSet(CourseFilteringMixin, viewsets.ModelViewSet):
     permission_classes = (IsSuperuserOrReadOnly,)
     serializer_class = FilteredCourseSerializer
+    queryset = Course.objects.none()
     lookup_field = "slug"
     http_method_names = ["get", "head", "options"]
 
@@ -73,6 +76,7 @@ class CourseViewSet(CourseFilteringMixin, viewsets.ModelViewSet):
 )
 class CourseByCategoryView(CourseFilteringMixin, ListAPIView):
     serializer_class = FilteredCourseSerializer
+    queryset = Course.objects.none()
     permission_classes = [AllowAny]
 
     def get_queryset(self):
@@ -88,24 +92,30 @@ class CourseByCategoryView(CourseFilteringMixin, ListAPIView):
     list=extend_schema(
         tags=["Course"],
         description=(
-            "List all courses. Superusers see all, other authenticated users "
-            "see only active ones."
+            "List courses within this endpoint’s visibility scope. Public endpoints "
+            "return published courses; management endpoints enforce instructor/admin access."
         ),
     ),
     retrieve=extend_schema(
         tags=["Course"], description="Retrieve a specific course by ID."
     ),
     create=extend_schema(
-        tags=["Course"], description="Create a new course. Only superusers can create."
+        tags=["Course"],
+        description=(
+            "Create a course as an instructor. Ownership is assigned to the "
+            "authenticated user."
+        ),
     ),
     update=extend_schema(
-        tags=["Course"], description="Update a course. Only superusers can update."
+        tags=["Course"],
+        description="Update an owned course as its instructor, or as an administrator.",
     ),
     partial_update=extend_schema(
         tags=["Course"],
-        description="Partially update a course. Only superusers can update.",
+        description="Partially update an owned course as its instructor, or as an administrator.",
     ),
     destroy=extend_schema(
+        responses={200: MessageSerializer, 204: None},
         tags=["Course"],
         description="Delete or restore a course. Toggles the deleted status.",
     ),
@@ -113,6 +123,7 @@ class CourseByCategoryView(CourseFilteringMixin, ListAPIView):
 class AllCourseViewSet(CourseFilteringMixin, viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsInstructorOrAdmin]
     serializer_class = CourseSerializer
+    queryset = Course.objects.none()
     filterset_class = ManagementCourseFilter
 
     def get_queryset(self, *args, **kwargs):

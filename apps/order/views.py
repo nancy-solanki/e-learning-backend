@@ -5,7 +5,16 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.schema import ErrorSerializer, ErrorsSerializer
+
 from .filters import OrderFilter
+from .models import Order
+from .schema import (
+    MakePaymentSerializer,
+    PaymentResultSerializer,
+    RazorpayOrderSerializer,
+    SuccessPaymentSerializer,
+)
 from .serializers import OrderSerializer
 from .service import OrderService
 
@@ -53,6 +62,7 @@ ORDER_FILTER_DESCRIPTION = (
 class OrderView(OrderFilteringMixin, mixins.ListModelMixin, generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = OrderSerializer
+    queryset = Order.objects.none()
 
     def get_queryset(self):
         return OrderService.get_user_orders(self.request.user)
@@ -69,6 +79,7 @@ class OrderView(OrderFilteringMixin, mixins.ListModelMixin, generics.GenericAPIV
 class SingleOrderView(mixins.RetrieveModelMixin, generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = OrderSerializer
+    queryset = Order.objects.none()
 
     def get_queryset(self):
         return OrderService.get_user_orders(self.request.user)
@@ -89,6 +100,7 @@ class OrderInstructorView(
 ):
     permission_classes = [IsAuthenticated]
     serializer_class = OrderSerializer
+    queryset = Order.objects.none()
 
     def get_queryset(self):
         return OrderService.get_instructor_orders(self.request.user)
@@ -106,6 +118,7 @@ class OrderInstructorView(
 class SingleOrderInstructorView(mixins.RetrieveModelMixin, generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = OrderSerializer
+    queryset = Order.objects.none()
 
     def get_queryset(self):
         return OrderService.get_instructor_orders(self.request.user)
@@ -120,8 +133,12 @@ class MakePayment(APIView):
     @extend_schema(
         tags=["Payment"],
         description="Initiate a payment and create a Razorpay order.",
-        request={"total_paid": float, "course": str},
-        responses={201: dict, 400: dict},
+        request=MakePaymentSerializer,
+        responses={
+            201: RazorpayOrderSerializer,
+            400: ErrorsSerializer,
+            500: ErrorsSerializer,
+        },
     )
     def post(self, request, format=None):
         total_paid = request.data.get("total_paid")
@@ -152,14 +169,8 @@ class SuccessPayment(APIView):
     @extend_schema(
         tags=["Payment"],
         description="Verify a successful payment and complete the order and enrollment.",
-        request={
-            "total_paid": float,
-            "course": str,
-            "response": dict,
-            "is_free": bool,
-            "coupon": str,
-        },
-        responses={200: dict, 400: dict},
+        request=SuccessPaymentSerializer,
+        responses={200: PaymentResultSerializer, 400: ErrorSerializer},
     )
     def post(self, request, format=None):
         success, message = OrderService.process_successful_payment(
