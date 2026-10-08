@@ -2,26 +2,31 @@ from allauth.socialaccount.providers.apple.client import AppleOAuth2Client
 from allauth.socialaccount.providers.apple.views import AppleOAuth2Adapter
 from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
 from allauth.socialaccount.providers.oauth2.client import OAuth2Client
+from dj_rest_auth.app_settings import api_settings as auth_settings
+from dj_rest_auth.jwt_auth import set_jwt_cookies, unset_jwt_cookies
 from dj_rest_auth.registration.views import SocialLoginView
-from dj_rest_auth.serializers import JWTSerializer
 from django.contrib.auth import get_user_model
+from django.middleware.csrf import get_token
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.exceptions import InvalidToken
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
+from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from apps.core.schema import MessageSerializer
 
-from .schema import TokenPairSerializer
+from .cookies import CsrfProtectedMixin, validate_session_user
+from .schema import CsrfTokenSerializer
 from .serializers import (
     SendPasswordResetEmailSerializer,
     SocialLoginSerializer,
     StaffSignInSerializer,
     UserActivateAccountSerializer,
     UserChangePasswordSerializer,
-    UserLogoutSerializer,
     UserPasswordResetSerializer,
     UserRegistrationSerializer,
 )
@@ -29,15 +34,83 @@ from .serializers import (
 User = get_user_model()
 
 
+@extend_schema_view(get=extend_schema(responses={200: CsrfTokenSerializer}))
+class CsrfTokenView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        response = Response({"csrfToken": get_token(request)})
+        response["Cache-Control"] = "no-store"
+        return response
+
+
+@extend_schema_view(post=extend_schema(responses={200: MessageSerializer}))
+class CookieSignInView(CsrfProtectedMixin, TokenObtainPairView):
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+        token = RefreshToken(response.data["refresh"])
+        user = User.objects.get(pk=token["user_id"])
+        validate_session_user(user, token)
+        set_jwt_cookies(response, response.data["access"], response.data["refresh"])
+        response.data = {"message": "Signed in successfully"}
+        response["Cache-Control"] = "no-store"
+        return response
+
+
+@extend_schema_view(
+    post=extend_schema(request=None, responses={200: MessageSerializer})
+)
+class CookieRefreshView(CsrfProtectedMixin, APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def get_authenticate_header(self, request):
+        return 'Bearer realm="api"'
+
+    def post(self, request):
+        raw_token = request.COOKIES.get(auth_settings.JWT_AUTH_REFRESH_COOKIE)
+        if not raw_token:
+            raise InvalidToken("Refresh cookie is missing.")
+        try:
+            token = RefreshToken(raw_token)
+            user = User.objects.filter(pk=token["user_id"], is_active=True).first()
+            if user is None:
+                raise InvalidToken("User is not active.")
+            validate_session_user(user, token)
+            serializer = TokenRefreshSerializer(data={"refresh": raw_token})
+            serializer.is_valid(raise_exception=True)
+        except TokenError as exc:
+            raise InvalidToken(str(exc)) from exc
+        response = Response({"message": "Session refreshed"})
+        set_jwt_cookies(
+            response,
+            serializer.validated_data["access"],
+            serializer.validated_data["refresh"],
+        )
+        response["Cache-Control"] = "no-store"
+        return response
+
+
+class CookieSocialLoginView(CsrfProtectedMixin, SocialLoginView):
+    authentication_classes = []
+
+    def get_response(self):
+        response = super().get_response()
+        response.data = {"message": "Signed in successfully"}
+        response["Cache-Control"] = "no-store"
+        return response
+
+
 @extend_schema_view(
     post=extend_schema(
         tags=["Authentication"],
         description="Sign in with an account belonging exclusively to admin/instructor groups.",
         request=StaffSignInSerializer,
-        responses={200: TokenPairSerializer},
+        responses={200: MessageSerializer},
     )
 )
-class StaffSignInView(TokenObtainPairView):
+class StaffSignInView(CookieSignInView):
     serializer_class = StaffSignInSerializer
 
 
@@ -46,10 +119,10 @@ class StaffSignInView(TokenObtainPairView):
         tags=["Authentication"],
         description="Exchange Google OAuth credentials for application tokens.",
         request=SocialLoginSerializer,
-        responses={200: JWTSerializer},
+        responses={200: MessageSerializer},
     )
 )
-class GoogleLoginView(SocialLoginView):
+class GoogleLoginView(CookieSocialLoginView):
     permission_classes = [AllowAny]
     serializer_class = SocialLoginSerializer
     adapter_class = GoogleOAuth2Adapter
@@ -61,10 +134,10 @@ class GoogleLoginView(SocialLoginView):
         tags=["Authentication"],
         description="Exchange Apple OAuth credentials for application tokens.",
         request=SocialLoginSerializer,
-        responses={200: JWTSerializer},
+        responses={200: MessageSerializer},
     )
 )
-class AppleLoginView(SocialLoginView):
+class AppleLoginView(CookieSocialLoginView):
     permission_classes = [AllowAny]
     serializer_class = SocialLoginSerializer
     adapter_class = AppleOAuth2Adapter
@@ -118,21 +191,26 @@ class UserActivateAccountView(APIView):
 @extend_schema_view(
     post=extend_schema(
         tags=["Authentication"],
-        description="Blacklist the supplied refresh token. The response has no body.",
-        request=UserLogoutSerializer,
+        description="Blacklist the refresh cookie and clear authentication cookies.",
+        request=None,
         responses={204: None},
     )
 )
-class UserLogoutView(APIView):
-    permission_classes = [IsAuthenticated]
+class UserLogoutView(CsrfProtectedMixin, APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
 
     def post(self, request):
-        serializer = UserLogoutSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(
-            {"message": "Signed out successfully"}, status=status.HTTP_204_NO_CONTENT
-        )
+        raw_token = request.COOKIES.get(auth_settings.JWT_AUTH_REFRESH_COOKIE)
+        if raw_token:
+            try:
+                RefreshToken(raw_token).blacklist()
+            except TokenError:
+                pass  # Always clear expired or already revoked cookies.
+        response = Response(status=status.HTTP_204_NO_CONTENT)
+        unset_jwt_cookies(response)
+        response["Cache-Control"] = "no-store"
+        return response
 
 
 @extend_schema_view(

@@ -131,8 +131,8 @@ class TestSignInView:
         response = api_client.post(
             self.url, {"email": active_user.email, "password": "testpassword123!"}
         )
-        assert "access" in response.data
-        assert "refresh" in response.data
+        assert "access_token" in response.cookies
+        assert "refresh_token" in response.cookies
 
     def test_wrong_password_returns_401(self, api_client, active_user):
         response = api_client.post(
@@ -164,29 +164,19 @@ class TestSignInView:
 class TestUserLogoutView:
     url = "/api/v1/auth/sign-out/"
 
-    def test_authenticated_logout_returns_204(self, auth_client, active_user):
-        refresh = str(RefreshToken.for_user(active_user))
-        response = auth_client.post(self.url, {"refresh_token": refresh})
-        assert response.status_code == status.HTTP_204_NO_CONTENT
+    def test_logout_clears_cookies_and_blacklists(self, api_client, active_user):
+        refresh = RefreshToken.for_user(active_user)
+        api_client.cookies["refresh_token"] = str(refresh)
+        response = api_client.post(self.url, {})
+        assert response.status_code == 204
+        assert response.cookies["access_token"]["max-age"] == 0
+        assert response.cookies["refresh_token"]["max-age"] == 0
+        from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
 
-    def test_unauthenticated_returns_401(self, api_client, active_user):
-        refresh = str(RefreshToken.for_user(active_user))
-        response = api_client.post(self.url, {"refresh_token": refresh})
-        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert BlacklistedToken.objects.filter(token__jti=refresh["jti"]).exists()
 
-    def test_invalid_token_returns_400(self, auth_client):
-        response = auth_client.post(self.url, {"refresh_token": "bad.token.value"})
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-
-    def test_missing_token_field_returns_400(self, auth_client):
-        response = auth_client.post(self.url, {})
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-
-    def test_reuse_blacklisted_token_returns_400(self, auth_client, active_user):
-        refresh = str(RefreshToken.for_user(active_user))
-        auth_client.post(self.url, {"refresh_token": refresh})
-        response = auth_client.post(self.url, {"refresh_token": refresh})
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+    def test_logout_is_idempotent(self, api_client):
+        assert api_client.post(self.url, {}).status_code == 204
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -200,17 +190,19 @@ class TestTokenRefreshView:
 
     def test_valid_refresh_returns_200(self, api_client, active_user):
         refresh = str(RefreshToken.for_user(active_user))
-        response = api_client.post(self.url, {"refresh": refresh})
+        api_client.cookies["refresh_token"] = refresh
+        response = api_client.post(self.url, {})
         assert response.status_code == status.HTTP_200_OK
-        assert "access" in response.data
+        assert "access_token" in response.cookies
 
     def test_invalid_refresh_returns_401(self, api_client):
-        response = api_client.post(self.url, {"refresh": "not-a-token"})
+        api_client.cookies["refresh_token"] = "not-a-token"
+        response = api_client.post(self.url, {})
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_missing_refresh_returns_400(self, api_client):
+    def test_missing_refresh_returns_401(self, api_client):
         response = api_client.post(self.url, {})
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -420,10 +412,9 @@ class TestStaffSignInView:
         )
         assert response.status_code == expected
         if expected == 200:
-            assert {"access", "refresh"} <= response.data.keys()
-            api_client.credentials(
-                HTTP_AUTHORIZATION=f"Bearer {response.data['access']}"
-            )
+            assert {"access_token", "refresh_token"} <= response.cookies.keys()
+            assert "access" not in response.data
+            assert "refresh" not in response.data
             assert api_client.get("/api/v1/users/me/").status_code == 200
         else:
             assert "access" not in response.data

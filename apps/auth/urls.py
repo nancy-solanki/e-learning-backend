@@ -1,8 +1,10 @@
 from django.urls import path
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from apps.auth.views import (
     AppleLoginView,
+    CookieRefreshView,
+    CookieSignInView,
+    CsrfTokenView,
     GoogleLoginView,
     SendPasswordResetEmailView,
     StaffSignInView,
@@ -17,16 +19,17 @@ from apps.users.invitations import AcceptInvitationView
 app_name = "auth"
 
 urlpatterns = [
+    path("csrf/", CsrfTokenView.as_view(), name="csrf"),
     path(
         "accept-invite/<str:uid>/<str:token>/",
         AcceptInvitationView.as_view(),
         name="accept-invite",
     ),
     path("sign-up/", UserRegistrationView.as_view(), name="sign-up"),
-    path("sign-in/", TokenObtainPairView.as_view(), name="sign-in"),
+    path("sign-in/", CookieSignInView.as_view(), name="sign-in"),
     path("staff/sign-in/", StaffSignInView.as_view(), name="staff-sign-in"),
     path("sign-out/", UserLogoutView.as_view(), name="sign-out"),
-    path("refresh/", TokenRefreshView.as_view(), name="refresh"),
+    path("refresh/", CookieRefreshView.as_view(), name="refresh"),
     path("google/", GoogleLoginView.as_view(), name="google-login"),
     path("apple/", AppleLoginView.as_view(), name="apple-login"),
     path("change-password/", UserChangePasswordView.as_view(), name="change-password"),

@@ -141,7 +141,7 @@ DEFAULT_DEV_ORIGINS = (
 
 CORS_ALLOWED_ORIGINS = env_list("CORS_ALLOWED_ORIGINS", DEFAULT_DEV_ORIGINS)
 
-CORS_ALLOW_ALL_ORIGINS = env_bool("CORS_ALLOW_ALL_ORIGINS", DEBUG)
+CORS_ALLOW_ALL_ORIGINS = env_bool("CORS_ALLOW_ALL_ORIGINS", False)
 
 CORS_ALLOW_CREDENTIALS = env_bool("CORS_ALLOW_CREDENTIALS", True)
 
@@ -227,7 +227,7 @@ AUTH_USER_MODEL = "users.User"
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "apps.auth.cookies.CookieJWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
@@ -370,7 +370,14 @@ SIMPLE_JWT = {
 
 REST_AUTH = {
     "USE_JWT": True,
-    "JWT_AUTH_HTTPONLY": False,
+    "SESSION_LOGIN": False,
+    "JWT_AUTH_COOKIE": "access_token",
+    "JWT_AUTH_REFRESH_COOKIE": "refresh_token",
+    "JWT_AUTH_REFRESH_COOKIE_PATH": "/api/v1/auth/",
+    "JWT_AUTH_HTTPONLY": True,
+    "JWT_AUTH_SECURE": env_bool("AUTH_COOKIE_SECURE", True),
+    "JWT_AUTH_SAMESITE": os.getenv("AUTH_COOKIE_SAMESITE", "Lax"),
+    "JWT_AUTH_COOKIE_USE_CSRF": True,
 }
 
 
@@ -495,3 +502,5 @@ SECURE_REFERRER_POLICY = "same-origin"
 
 CSRF_COOKIE_HTTPONLY = False
 SESSION_COOKIE_HTTPONLY = True
+
+CSRF_COOKIE_SAMESITE = os.getenv("AUTH_COOKIE_SAMESITE", "Lax")

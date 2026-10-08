@@ -64,3 +64,5 @@ CSRF_COOKIE_SECURE = False
 # ---------------------------------------------------------------------------
 
 REST_FRAMEWORK["DEFAULT_PERMISSION_CLASSES"] = ("rest_framework.permissions.AllowAny",)
+
+REST_AUTH["JWT_AUTH_SECURE"] = env_bool("AUTH_COOKIE_SECURE", False)
