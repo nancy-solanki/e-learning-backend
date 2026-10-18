@@ -94,3 +94,7 @@ class CourseSerializer(serializers.ModelSerializer):
 
     def get_student_count(self, obj) -> int:
         return obj.enroll.count()
+
+
+class AdminCourseSerializer(CourseSerializer):
+    thumbnail = FileSerializer(read_only=True)

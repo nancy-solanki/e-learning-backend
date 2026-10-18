@@ -12,7 +12,11 @@ from apps.core.schema import MessageSerializer
 
 from .filters import CourseFilter, ManagementCourseFilter
 from .models import Course
-from .serializers import CourseSerializer, FilteredCourseSerializer
+from .serializers import (
+    AdminCourseSerializer,
+    CourseSerializer,
+    FilteredCourseSerializer,
+)
 from .service import CourseService
 
 # Create your views here.
@@ -46,9 +50,11 @@ class CourseFilteringMixin:
 )
 class AdminCourseListView(CourseFilteringMixin, ListAPIView):
     permission_classes = [IsAuthenticated, IsSuperuser]
-    serializer_class = CourseSerializer
+    serializer_class = AdminCourseSerializer
     filterset_class = ManagementCourseFilter
-    queryset = Course.objects.all().prefetch_related("categories", "tags", "enroll")
+    queryset = Course.objects.select_related("thumbnail").prefetch_related(
+        "categories", "tags", "enroll"
+    )
 
 
 @extend_schema_view(

@@ -35,6 +35,14 @@ def test_admin_list_includes_deleted_and_all_owners(client):
     assert {row["id"] for row in response.data["results"]} == {
         str(course.pk) for course in courses
     }
+    thumbnails = {str(course.pk): course.thumbnail for course in courses}
+    for row in response.data["results"]:
+        thumbnail = thumbnails[row["id"]]
+        assert row["thumbnail"] == {
+            "id": str(thumbnail.pk),
+            "name": thumbnail.name,
+            "url": thumbnail.url,
+        }
     response = client.get(ADMIN, {"status": "rejected"})
     assert response.data["results"][0]["deleted_at"] is not None
 
