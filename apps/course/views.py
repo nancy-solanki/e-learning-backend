@@ -7,13 +7,12 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from apps.category.models import Category
-from apps.core.permission import IsInstructorOrAdmin, IsSuperuser, IsSuperuserOrReadOnly
+from apps.core.permission import IsInstructorOrAdmin, IsSuperuserOrReadOnly
 from apps.core.schema import MessageSerializer
 
 from .filters import CourseFilter, ManagementCourseFilter
 from .models import Course
 from .serializers import (
-    AdminCourseSerializer,
     CourseSerializer,
     FilteredCourseSerializer,
 )
@@ -42,19 +41,6 @@ class CourseFilteringMixin:
     filterset_class = CourseFilter
     ordering_fields = ("title", "price", "created_at", "updated_at")
     ordering = ("-created_at", "-id")
-
-
-@extend_schema(
-    tags=["Course"],
-    description="Admin-only course list, including all statuses and soft-deleted courses.",
-)
-class AdminCourseListView(CourseFilteringMixin, ListAPIView):
-    permission_classes = [IsAuthenticated, IsSuperuser]
-    serializer_class = AdminCourseSerializer
-    filterset_class = ManagementCourseFilter
-    queryset = Course.objects.select_related("thumbnail").prefetch_related(
-        "categories", "tags", "enroll"
-    )
 
 
 @extend_schema_view(

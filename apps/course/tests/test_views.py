@@ -10,40 +10,20 @@ from apps.users.tests.factories import UserFactory
 pytestmark = pytest.mark.django_db
 PUBLIC = "/api/v1/course/"
 MANAGE = PUBLIC + "instructor/all/"
-ADMIN = PUBLIC + "admin/all/"
 
 
-def test_admin_list_access(client, instructor):
-    assert client.get(ADMIN).status_code == 401
-    for user in [UserFactory(), instructor, UserFactory(is_staff=True)]:
-        client.force_authenticate(user)
-        assert client.get(ADMIN).status_code == 403
-    admin = UserFactory()
-    admin.groups.add(Group.objects.get_or_create(name="admin")[0])
-    for user in [admin, UserFactory(is_superuser=True)]:
-        client.force_authenticate(user)
-        assert client.get(ADMIN).status_code == 200
-        assert client.post(ADMIN, {}).status_code == 405
-
-
-def test_admin_list_includes_deleted_and_all_owners(client):
+def test_management_admin_list_includes_deleted_and_all_owners(client):
     courses = [CourseFactory(status="draft"), CourseFactory(status="rejected")]
     courses[1].soft_delete()
-    client.force_authenticate(UserFactory(is_superuser=True))
-    response = client.get(ADMIN)
+    admin = UserFactory()
+    admin.groups.add(Group.objects.get_or_create(name="admin")[0])
+    client.force_authenticate(admin)
+    response = client.get(MANAGE)
     assert response.data["count"] == 2
     assert {row["id"] for row in response.data["results"]} == {
         str(course.pk) for course in courses
     }
-    thumbnails = {str(course.pk): course.thumbnail for course in courses}
-    for row in response.data["results"]:
-        thumbnail = thumbnails[row["id"]]
-        assert row["thumbnail"] == {
-            "id": str(thumbnail.pk),
-            "name": thumbnail.name,
-            "url": thumbnail.url,
-        }
-    response = client.get(ADMIN, {"status": "rejected"})
+    response = client.get(MANAGE, {"status": "rejected"})
     assert response.data["results"][0]["deleted_at"] is not None
 
 
@@ -116,7 +96,7 @@ def test_admin_can_restore(client, course):
     assert not course.is_deleted
 
 
-@pytest.mark.parametrize("endpoint", [PUBLIC, "category", MANAGE, ADMIN])
+@pytest.mark.parametrize("endpoint", [PUBLIC, "category", MANAGE])
 def test_combined_course_filters(client, instructor, endpoint):
     from apps.course.models import Tag
 
@@ -133,9 +113,7 @@ def test_combined_course_filters(client, instructor, endpoint):
     matching.tags.add(tag)
     other = CourseFactory(instructor=instructor, status="published", price=200)
     other.categories.add(category)
-    if endpoint == ADMIN:
-        client.force_authenticate(UserFactory(is_superuser=True))
-    elif endpoint == MANAGE:
+    if endpoint == MANAGE:
         client.force_authenticate(instructor)
     elif endpoint == "category":
         endpoint = PUBLIC + f"category/{category.slug}/"
