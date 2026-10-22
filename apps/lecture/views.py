@@ -6,7 +6,7 @@ from rest_framework.generics import ListAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-from apps.core.permission import IsInstructorOrAdmin
+from apps.core.moderation import AdminStatusOnlyMixin, IsInstructorOrContentAdmin
 from apps.core.schema import MessageSerializer
 
 from .filters import LectureFilter
@@ -59,24 +59,37 @@ class LectureViewSet(LectureFilteringMixin, viewsets.ModelViewSet):
     ),
     create=extend_schema(
         tags=["Lecture"],
-        description="Create a new lecture. Handles video processing and course updates.",
+        description=(
+            "Create a lecture as a non-admin instructor. "
+            "Handles video processing and course updates."
+        ),
     ),
-    update=extend_schema(tags=["Lecture"], description="Update a lecture."),
+    update=extend_schema(
+        tags=["Lecture"],
+        description="Instructors may edit their own lecture; admins may update only status.",
+    ),
     partial_update=extend_schema(
-        tags=["Lecture"], description="Partially update a lecture."
+        tags=["Lecture"],
+        description="Instructors may edit their own lecture; admins may update only status.",
     ),
     destroy=extend_schema(
         responses={200: MessageSerializer},
         tags=["Lecture"],
-        description="Toggle deletion status (soft delete/restore) for a lecture.",
+        description=(
+            "Admins soft-delete idempotently without restoring; "
+            "instructors toggle soft deletion."
+        ),
     ),
 )
-class AllLectureViewSet(LectureFilteringMixin, viewsets.ModelViewSet):
+class AllLectureViewSet(
+    AdminStatusOnlyMixin, LectureFilteringMixin, viewsets.ModelViewSet
+):
     """
     ViewSet for administrator and instructor to manage all lectures.
     """
 
-    permission_classes = [IsInstructorOrAdmin, IsAuthenticated]
+    admin_delete_status = status.HTTP_200_OK
+    permission_classes = [IsInstructorOrContentAdmin, IsAuthenticated]
     serializer_class = LectureSerializer
 
     queryset = Lecture.objects.none()
@@ -93,7 +106,7 @@ class AllLectureViewSet(LectureFilteringMixin, viewsets.ModelViewSet):
             user=self.request.user, validated_data=serializer.validated_data
         )
 
-    def destroy(self, request, *args, **kwargs):
+    def _destroy_instructor(self, request, *args, **kwargs):
         instance = self.get_object()
         message = LectureService.toggle_lecture_status(instance)
         # Check if it was a deletion or activation for status code

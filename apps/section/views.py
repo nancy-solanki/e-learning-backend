@@ -6,7 +6,7 @@ from rest_framework.generics import ListAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-from apps.core.permission import IsInstructorOrAdmin
+from apps.core.moderation import AdminStatusOnlyMixin, IsInstructorOrContentAdmin
 from apps.core.schema import MessageSerializer
 from apps.course.models import Course
 
@@ -56,19 +56,30 @@ class SectionViewSet(SectionFilteringMixin, viewsets.ModelViewSet):
     retrieve=extend_schema(
         tags=["Section"], description="Retrieve a specific section by ID."
     ),
-    create=extend_schema(tags=["Section"], description="Create a new section."),
-    update=extend_schema(tags=["Section"], description="Update a section."),
+    create=extend_schema(
+        tags=["Section"], description="Create a new section as a non-admin instructor."
+    ),
+    update=extend_schema(
+        tags=["Section"],
+        description="Instructors may edit their own section; admins may update only status.",
+    ),
     partial_update=extend_schema(
-        tags=["Section"], description="Partially update a section."
+        tags=["Section"],
+        description="Instructors may edit their own section; admins may update only status.",
     ),
     destroy=extend_schema(
         responses={200: MessageSerializer, 204: None},
         tags=["Section"],
-        description="Toggle the soft delete status of a section.",
+        description=(
+            "Admins soft-delete idempotently without restoring; "
+            "instructors toggle soft deletion."
+        ),
     ),
 )
-class AllSectionViewSet(SectionFilteringMixin, viewsets.ModelViewSet):
-    permission_classes = [IsInstructorOrAdmin, IsAuthenticated]
+class AllSectionViewSet(
+    AdminStatusOnlyMixin, SectionFilteringMixin, viewsets.ModelViewSet
+):
+    permission_classes = [IsInstructorOrContentAdmin, IsAuthenticated]
     serializer_class = SectionSerializer
 
     queryset = Section.objects.none()
@@ -79,7 +90,7 @@ class AllSectionViewSet(SectionFilteringMixin, viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(instructor=self.request.user)
 
-    def destroy(self, request, *args, **kwargs):
+    def _destroy_instructor(self, request, *args, **kwargs):
         instance = self.get_object()
         SectionService.toggle_section_status(instance)
         if instance.deleted_at:

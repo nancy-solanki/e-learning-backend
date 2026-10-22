@@ -61,14 +61,14 @@ def test_foreign_hidden_student_denied(client, instructor):
     assert client.get(MANAGE).status_code == 403
 
 
-def test_admin_restore(client, section):
+def test_admin_delete_does_not_restore(client, section):
     admin = UserFactory()
     admin.groups.add(Group.objects.get_or_create(name="admin")[0])
     client.force_authenticate(admin)
     section.soft_delete()
-    assert client.delete(MANAGE + f"{section.pk}/").status_code == 200
+    assert client.delete(MANAGE + f"{section.pk}/").status_code == 204
     section.refresh_from_db()
-    assert not section.is_deleted
+    assert section.is_deleted
 
 
 @pytest.mark.parametrize("endpoint", [PUBLIC, MANAGE, "course"])

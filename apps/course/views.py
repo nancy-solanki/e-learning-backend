@@ -7,7 +7,8 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from apps.category.models import Category
-from apps.core.permission import IsInstructorOrAdmin, IsSuperuserOrReadOnly
+from apps.core.moderation import AdminStatusOnlyMixin, IsInstructorOrContentAdmin
+from apps.core.permission import IsSuperuserOrReadOnly
 from apps.core.schema import MessageSerializer
 
 from .filters import CourseFilter, ManagementCourseFilter
@@ -111,20 +112,25 @@ class CourseByCategoryView(CourseFilteringMixin, ListAPIView):
     ),
     update=extend_schema(
         tags=["Course"],
-        description="Update an owned course as its instructor, or as an administrator.",
+        description="Instructors may edit their own course; admins may update only status.",
     ),
     partial_update=extend_schema(
         tags=["Course"],
-        description="Partially update an owned course as its instructor, or as an administrator.",
+        description="Instructors may edit their own course; admins may update only status.",
     ),
     destroy=extend_schema(
         responses={200: MessageSerializer, 204: None},
         tags=["Course"],
-        description="Delete or restore a course. Toggles the deleted status.",
+        description=(
+            "Admins soft-delete idempotently without restoring; "
+            "instructors toggle soft deletion."
+        ),
     ),
 )
-class AllCourseViewSet(CourseFilteringMixin, viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated, IsInstructorOrAdmin]
+class AllCourseViewSet(
+    AdminStatusOnlyMixin, CourseFilteringMixin, viewsets.ModelViewSet
+):
+    permission_classes = [IsAuthenticated, IsInstructorOrContentAdmin]
     serializer_class = CourseSerializer
     queryset = Course.objects.none()
     filterset_class = ManagementCourseFilter
@@ -135,7 +141,7 @@ class AllCourseViewSet(CourseFilteringMixin, viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(instructor=self.request.user)
 
-    def destroy(self, request, *args, **kwargs):
+    def _destroy_instructor(self, request, *args, **kwargs):
         instance = self.get_object()
         CourseService.toggle_course_status(instance)
         if instance.is_deleted:
