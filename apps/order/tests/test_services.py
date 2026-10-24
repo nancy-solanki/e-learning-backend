@@ -76,6 +76,8 @@ def test_success_updates_records_and_wallets(gateway, as_json):
         wallet.refresh_from_db()
         assert wallet.current_earnings == expected
         assert wallet.total_earnings == expected
+    assert admin_wallet.entries.get().amount == 10
+    assert instructor.entries.get().amount == 90
     coupon.refresh_from_db()
     assert coupon.used == 1
     gateway.utility.verify_payment_signature.assert_called_once()

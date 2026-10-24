@@ -1,6 +1,7 @@
 import json
 import math
 import os
+from decimal import ROUND_DOWN, Decimal
 
 import razorpay
 from django.db import transaction
@@ -9,6 +10,7 @@ from django.db.models import Q
 from apps.coupon.models import Coupon
 from apps.course.models import Course
 from apps.enroll.repository import EnrollRepository
+from apps.wallet.ledger import record_entry
 from apps.wallet.models import Wallet
 from apps.wallet.repository import WalletRepository
 
@@ -162,17 +164,30 @@ class OrderService:
             site_wallet.total_earnings += total
             site_wallet.save()
 
-        if instructor_wallet:
-            instructor_wallet.current_earnings += instructor_earning
-            instructor_wallet.total_earnings += instructor_earning
-            instructor_wallet.save()
+        if instructor_wallet and instructor_earning:
+            record_entry(
+                instructor_wallet,
+                reference=f"order:{order.pk}:instructor:{instructor_wallet.pk}",
+                amount=instructor_earning,
+                kind="earning",
+                description=course.title,
+            )
 
         if admin_wallets.exists():
             count = admin_wallets.count()
-            single_admin_earning = admin_fee / count
-            for wallet in admin_wallets:
-                wallet.current_earnings += single_admin_earning
-                wallet.total_earnings += single_admin_earning
-                wallet.save()
+            single_admin_earning = (Decimal(admin_fee) / count).quantize(
+                Decimal("0.01"), rounding=ROUND_DOWN
+            )
+            remainder = Decimal(admin_fee) - single_admin_earning * count
+            for index, wallet in enumerate(admin_wallets.order_by("pk")):
+                share = single_admin_earning + (remainder if index == 0 else Decimal(0))
+                if share:
+                    record_entry(
+                        wallet,
+                        reference=f"order:{order.pk}:wallet:{wallet.pk}",
+                        amount=share,
+                        kind="earning",
+                        description=course.title,
+                    )
 
         return True, "Payment success"

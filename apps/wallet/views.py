@@ -5,28 +5,18 @@ from drf_spectacular.utils import (
     extend_schema_view,
 )
 from rest_framework import filters, viewsets
-from rest_framework.permissions import BasePermission, IsAuthenticated
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.core.schema import DetailSerializer
 
 from .filters import WalletFilter
 from .models import Wallet
+from .permissions import IsWalletUser
 from .serializers import WalletSerializer
 from .service import WalletService
 
 # Create your views here.
-
-
-class IsInstructorOrAdmin(BasePermission):
-    def has_permission(self, request, view):
-        try:
-            return request.user.is_instructor or request.user.is_admin
-        except AttributeError:
-            return False
-
-    def has_object_permission(self, request, view, obj):
-        return obj.user_id == request.user.pk
 
 
 @extend_schema_serializer(many=False)
@@ -49,7 +39,7 @@ class WalletResponseSerializer(WalletSerializer):
     ),
 )
 class WalletViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated, IsInstructorOrAdmin]
+    permission_classes = [IsAuthenticated, IsWalletUser]
     pagination_class = None
     serializer_class = WalletSerializer
     queryset = Wallet.objects.none()

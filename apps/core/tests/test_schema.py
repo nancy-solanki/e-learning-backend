@@ -45,7 +45,12 @@ def test_every_operation_has_metadata_and_success_contract(schema):
                 if code == "204":
                     assert "content" not in response
                 else:
-                    assert response["content"]["application/json"]["schema"], (
+                    media_type = (
+                        "text/csv"
+                        if path == "/api/v1/wallet/transactions/export/"
+                        else "application/json"
+                    )
+                    assert response["content"][media_type]["schema"], (
                         path,
                         method,
                     )

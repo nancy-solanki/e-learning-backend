@@ -9,9 +9,9 @@ def test_representation(wallet):
     data = WalletSerializer(wallet).data
     assert data["id"] == str(wallet.pk)
     assert data["user"] == wallet.user_id
-    assert data["current_earnings"] == 0
-    assert data["total_earnings"] == 0
-    assert data["total_withdraws"] == 0
+    assert data["current_earnings"] == "0.00"
+    assert data["total_earnings"] == "0.00"
+    assert data["total_withdraws"] == "0.00"
 
 
 @pytest.mark.parametrize(

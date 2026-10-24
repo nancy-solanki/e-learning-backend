@@ -4,8 +4,8 @@ import pytest
 from django.contrib.auth.models import AnonymousUser, Group
 
 from apps.users.tests.factories import UserFactory
+from apps.wallet.permissions import IsWalletUser
 from apps.wallet.tests.factories import WalletFactory
-from apps.wallet.views import IsInstructorOrAdmin
 
 pytestmark = pytest.mark.django_db
 BASE = "/api/v1/wallet/"
@@ -15,12 +15,12 @@ def test_anonymous_and_student_denied(client):
     assert client.get(BASE).status_code == 401
     client.force_authenticate(UserFactory())
     assert client.get(BASE).status_code == 403
-    assert not IsInstructorOrAdmin().has_permission(
+    assert not IsWalletUser().has_permission(
         SimpleNamespace(user=AnonymousUser()), None
     )
 
 
-@pytest.mark.parametrize("role", ["instructor", "admin"])
+@pytest.mark.parametrize("role", ["admin", "instructor"])
 def test_owner_can_read_wallet(client, wallet, role):
     wallet.user.groups.add(Group.objects.get_or_create(name=role)[0])
     client.force_authenticate(wallet.user)
@@ -31,7 +31,7 @@ def test_owner_can_read_wallet(client, wallet, role):
 
 
 def test_missing_and_deleted_wallet(client, wallet):
-    wallet.user.become_instructor()
+    wallet.user.groups.add(Group.objects.get_or_create(name="admin")[0])
     client.force_authenticate(wallet.user)
     wallet.soft_delete()
     response = client.get(BASE)
@@ -41,7 +41,7 @@ def test_missing_and_deleted_wallet(client, wallet):
 
 @pytest.mark.parametrize("method", ["post", "put", "patch", "delete"])
 def test_readonly(client, wallet, method):
-    wallet.user.become_instructor()
+    wallet.user.groups.add(Group.objects.get_or_create(name="admin")[0])
     client.force_authenticate(wallet.user)
     target = BASE if method == "post" else BASE + f"{wallet.pk}/"
     assert getattr(client, method)(target).status_code == 405
@@ -63,7 +63,7 @@ def test_readonly(client, wallet, method):
     ],
 )
 def test_amount_filters(client, wallet, field, suffix, value, expected):
-    wallet.user.become_instructor()
+    wallet.user.groups.add(Group.objects.get_or_create(name="admin")[0])
     client.force_authenticate(wallet.user)
     setattr(wallet, field, 100)
     wallet.save()
@@ -75,7 +75,7 @@ def test_amount_filters(client, wallet, field, suffix, value, expected):
 
 @pytest.mark.parametrize("field", ["username", "first_name", "last_name", "email"])
 def test_search_owner_details(client, wallet, field):
-    wallet.user.become_instructor()
+    wallet.user.groups.add(Group.objects.get_or_create(name="admin")[0])
     setattr(
         wallet.user,
         field,
@@ -88,7 +88,7 @@ def test_search_owner_details(client, wallet, field):
 
 
 def test_search_id_and_combined_filters(client, wallet):
-    wallet.user.become_instructor()
+    wallet.user.groups.add(Group.objects.get_or_create(name="admin")[0])
     client.force_authenticate(wallet.user)
     query = {
         "search": str(wallet.pk),
@@ -112,14 +112,14 @@ def test_search_id_and_combined_filters(client, wallet):
 def test_creation_date_filters(client, wallet, query, expected):
     from datetime import datetime, timezone
 
-    wallet.user.become_instructor()
+    wallet.user.groups.add(Group.objects.get_or_create(name="admin")[0])
     client.force_authenticate(wallet.user)
     wallet.created_at = datetime(2026, 1, 15, 12, tzinfo=timezone.utc)
     wallet.save()
     assert client.get(BASE, query).status_code == expected
 
 
-@pytest.mark.parametrize("role", ["instructor", "admin"])
+@pytest.mark.parametrize("role", ["admin", "instructor"])
 def test_search_cannot_expose_foreign_or_deleted_wallets(client, wallet, role):
     wallet.user.groups.add(Group.objects.get_or_create(name=role)[0])
     client.force_authenticate(wallet.user)

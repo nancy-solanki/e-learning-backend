@@ -32,4 +32,11 @@ class WalletAdmin(admin.ModelAdmin):
         ("Timestamps", {"fields": ("created_at", "updated_at", "deleted_at")}),
     )
 
-    readonly_fields = ("created_at", "updated_at", "deleted_at")
+    readonly_fields = (
+        "created_at",
+        "updated_at",
+        "deleted_at",
+        "current_earnings",
+        "total_earnings",
+        "total_withdraws",
+    )
