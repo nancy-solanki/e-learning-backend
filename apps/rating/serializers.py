@@ -45,8 +45,17 @@ class RatingSerializer(serializers.ModelSerializer):
         else:
             rating_instance = self.instance
 
+            if user.is_admin:
+                forbidden_fields = set(attrs) - {"comment", "response"}
+                if forbidden_fields:
+                    raise serializers.ValidationError(
+                        {
+                            field: "Admins can only moderate the comment and response."
+                            for field in forbidden_fields
+                        }
+                    )
             # Check if student is trying to update
-            if user == rating_instance.user:
+            elif user == rating_instance.user:
                 # Students can update only the rating and comment.
                 if "response" in attrs:
                     raise serializers.ValidationError(
@@ -67,9 +76,6 @@ class RatingSerializer(serializers.ModelSerializer):
                 attrs.pop("course", None)
                 attrs.pop("user", None)
 
-            # Admin list/override
-            elif user.is_superuser or user.groups.filter(name="admin").exists():
-                pass
             else:
                 raise serializers.ValidationError(
                     "You are not authorized to update this rating."

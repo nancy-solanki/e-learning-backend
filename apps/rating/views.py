@@ -2,7 +2,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import filters, viewsets
 from rest_framework.generics import ListAPIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import BasePermission, IsAuthenticated
 
 from apps.core.permission import IsOwnerOrInstructor
 
@@ -10,6 +10,11 @@ from .filters import RatingFilter
 from .models import Rating
 from .serializers import RatingSerializer
 from .service import RatingService
+
+
+class IsNotAdminCreatingRating(BasePermission):
+    def has_permission(self, request, view):
+        return request.method != "POST" or not request.user.is_admin
 
 
 class RatingFilteringMixin:
@@ -50,7 +55,8 @@ RATING_FILTER_DESCRIPTION = (
         tags=["Rating"], description="Retrieve a specific rating by UUID."
     ),
     create=extend_schema(
-        tags=["Rating"], description="Create a new rating for a course."
+        tags=["Rating"],
+        description="Create a rating for an enrolled course. Admins cannot create ratings.",
     ),
     update=extend_schema(
         tags=["Rating"], description="Update a rating (instructor or owner)."
@@ -65,7 +71,11 @@ class RatingViewSet(RatingFilteringMixin, viewsets.ModelViewSet):
     ViewSet for managing ratings.
     """
 
-    permission_classes = [IsAuthenticated, IsOwnerOrInstructor]
+    permission_classes = [
+        IsAuthenticated,
+        IsNotAdminCreatingRating,
+        IsOwnerOrInstructor,
+    ]
     serializer_class = RatingSerializer
     queryset = Rating.objects.none()
 

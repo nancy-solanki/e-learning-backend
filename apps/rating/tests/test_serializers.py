@@ -73,6 +73,9 @@ def test_deleted_rating_can_be_replaced(course):
         ("instructor", {"comment": "Changed"}, False),
         ("stranger", {"comment": "Changed"}, False),
         ("admin", {"comment": "Moderated"}, True),
+        ("admin", {"response": "Moderated response"}, True),
+        ("admin", {"rating": 5}, False),
+        ("admin", {"course": "00000000-0000-0000-0000-000000000000"}, False),
     ],
 )
 def test_update_roles(rating, role, data, valid):

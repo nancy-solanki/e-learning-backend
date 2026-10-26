@@ -1,4 +1,5 @@
 import pytest
+from django.contrib.auth.models import Group
 from django.urls import reverse
 
 from apps.enroll.models import Enroll
@@ -43,6 +44,53 @@ def test_unenrolled_user_cannot_create(client, course):
     )
     assert response.status_code == 400
     assert not Rating.objects.exists()
+
+
+@pytest.mark.parametrize("admin_type", ["superuser", "admin_group"])
+def test_admin_cannot_create_rating(client, course, admin_type):
+    admin = UserFactory(is_superuser=admin_type == "superuser")
+    if admin_type == "admin_group":
+        admin.groups.add(Group.objects.get_or_create(name="admin")[0])
+    Enroll.objects.create(user=admin, course=course)
+    client.force_authenticate(admin)
+
+    response = client.post(
+        url(),
+        {"course": str(course.pk), "rating": "4.0", "comment": "Good"},
+        format="json",
+    )
+
+    assert response.status_code == 403
+    assert not Rating.objects.exists()
+
+
+@pytest.mark.parametrize("admin_type", ["superuser", "admin_group"])
+def test_admin_can_moderate_comment_and_response_only(client, rating, admin_type):
+    admin = UserFactory(is_superuser=admin_type == "superuser")
+    if admin_type == "admin_group":
+        admin.groups.add(Group.objects.get_or_create(name="admin")[0])
+    client.force_authenticate(admin)
+
+    response = client.patch(
+        url(rating),
+        {"comment": "Moderated comment", "response": "Moderator note"},
+        format="json",
+    )
+
+    assert response.status_code == 200, response.data
+    rating.refresh_from_db()
+    assert rating.comment == "Moderated comment"
+    assert rating.response == "Moderator note"
+
+    for payload in (
+        {"rating": "1.0"},
+        {"course": str(rating.course_id)},
+    ):
+        response = client.patch(url(rating), payload, format="json")
+        assert response.status_code == 400, response.data
+    rating.refresh_from_db()
+    assert rating.rating == 4
+    assert rating.course_id == rating.course.pk
 
 
 def test_owner_updates_and_soft_deletes(client, rating):
