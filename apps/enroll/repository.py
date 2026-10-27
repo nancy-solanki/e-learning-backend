@@ -1,3 +1,5 @@
+from django.db.models import Count, Q
+
 from .models import Enroll
 
 
@@ -9,7 +11,22 @@ class EnrollRepository:
     @staticmethod
     def get_all_enrollments():
         """Returns a queryset of all active enrollments (not deleted)."""
-        return Enroll.objects.filter(deleted_at__isnull=True).order_by("-created_at")
+        return (
+            Enroll.objects.filter(deleted_at__isnull=True)
+            .select_related("user", "course")
+            .annotate(
+                total_lessons=Count(
+                    "course__lecture",
+                    filter=Q(
+                        course__lecture__deleted_at__isnull=True,
+                        course__lecture__status="published",
+                        course__lecture__section__deleted_at__isnull=True,
+                        course__lecture__section__status="published",
+                    ),
+                    distinct=True,
+                )
+            )
+        )
 
     @staticmethod
     def get_instructor_enrollments(user):

@@ -47,7 +47,11 @@ def test_every_operation_has_metadata_and_success_contract(schema):
                 else:
                     media_type = (
                         "text/csv"
-                        if path == "/api/v1/wallet/transactions/export/"
+                        if path
+                        in (
+                            "/api/v1/wallet/transactions/export/",
+                            "/api/v1/enroll/management/export/",
+                        )
                         else "application/json"
                     )
                     assert response["content"][media_type]["schema"], (

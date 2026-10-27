@@ -9,6 +9,8 @@ class EnrollService:
     @staticmethod
     def get_enrollments(user):
         """Returns enrollments based on user role."""
+        if user.is_admin:
+            return EnrollRepository.get_all_enrollments()
         if user.is_instructor:
             return EnrollRepository.get_instructor_enrollments(user)
         return EnrollRepository.get_user_enrollments(user)
