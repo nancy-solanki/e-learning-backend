@@ -60,7 +60,7 @@ def test_success_updates_records_and_wallets(gateway, as_json):
     instructor = WalletFactory(user=course.instructor)
     admin = UserFactory()
     admin.groups.add(Group.objects.get_or_create(name="admin")[0])
-    admin_wallet = WalletFactory(user=admin)
+    admin_wallet = admin.wallet_set.get()
     data = payload(course)
     data["coupon"] = str(coupon.pk)
     if as_json:
