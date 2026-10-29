@@ -7,15 +7,17 @@ from apps.users.tests.factories import SuperuserFactory, UserFactory
 pytestmark = pytest.mark.django_db
 
 
-@pytest.mark.parametrize("role", ["student", "admin", "superuser"])
+@pytest.mark.parametrize("role", ["student", "instructor", "admin", "superuser"])
 def test_visibility_and_toggle(localization, role):
     user = SuperuserFactory() if role == "superuser" else UserFactory()
-    if role == "admin":
-        user.groups.add(Group.objects.get_or_create(name="admin")[0])
-    assert list(LocalizationService.get_queryset_for_user(user)) == [localization]
+    if role in ("admin", "instructor"):
+        user.groups.add(Group.objects.get_or_create(name=role)[0])
+    assert list(LocalizationService.get_queryset_for_user(user)) == (
+        [localization] if role in ("superuser", "admin") else []
+    )
     LocalizationService.toggle_localization_status(localization)
     assert list(LocalizationService.get_queryset_for_user(user)) == (
-        [] if role == "student" else [localization]
+        [localization] if role in ("superuser", "admin") else []
     )
     LocalizationService.toggle_localization_status(localization)
     localization.refresh_from_db()

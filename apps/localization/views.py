@@ -4,7 +4,7 @@ from rest_framework import filters, status, viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from apps.core.permission import IsSuperuserOrReadOnly
+from apps.core.permission import IsSuperuser
 from apps.core.schema import MessageSerializer
 
 from .filters import LocalizationFilter
@@ -18,33 +18,46 @@ from .service import LocalizationService
     list=extend_schema(
         tags=["Localization"],
         description=(
-            "List all localizations. Superusers and admins see all, other authenticated users "
-            "see only active ones."
+            "List all localizations, including deleted ones. "
+            "Superusers and admin-group members only."
         ),
     ),
     retrieve=extend_schema(
-        tags=["Localization"], description="Retrieve a specific localization by ID."
+        tags=["Localization"],
+        description=(
+            "Retrieve a specific localization by ID. "
+            "Superusers and admin-group members only."
+        ),
     ),
     create=extend_schema(
         tags=["Localization"],
-        description="Create a new localization. Only superusers and admins can create.",
+        description=(
+            "Create a new localization. "
+            "Only superusers and admin-group members can create."
+        ),
     ),
     update=extend_schema(
         tags=["Localization"],
-        description="Update a localization. Only superusers and admins can update.",
+        description="Update a localization. Only superusers and admin-group members can update.",
     ),
     partial_update=extend_schema(
         tags=["Localization"],
-        description="Partially update a localization. Only superusers and admins can update.",
+        description=(
+            "Partially update a localization. "
+            "Only superusers and admin-group members can update."
+        ),
     ),
     destroy=extend_schema(
         responses={200: MessageSerializer, 204: None},
         tags=["Localization"],
-        description="Delete or restore a localization. Toggles the deleted status.",
+        description=(
+            "Delete or restore a localization. Toggles the deleted status. "
+            "Superusers and admin-group members only."
+        ),
     ),
 )
 class LocalizationViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsSuperuserOrReadOnly, IsAuthenticated]
+    permission_classes = [IsSuperuser, IsAuthenticated]
     serializer_class = LocalizationSerializer
     queryset = Localization.objects.none()
     filter_backends = (

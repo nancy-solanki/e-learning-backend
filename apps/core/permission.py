@@ -12,7 +12,7 @@ class IsSuperuser(permissions.BasePermission):
         """
         return request.user.is_authenticated and (
             request.user.is_superuser
-            or request.user.groups.filter(name="admin").exists()
+            and request.user.groups.filter(name="admin").exists()
         )
 
 
