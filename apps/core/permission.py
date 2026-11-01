@@ -3,7 +3,7 @@ from rest_framework import permissions
 
 class IsSuperuser(permissions.BasePermission):
     """
-    Custom permission to only allow superuser to perform actions.
+    Custom permission to allow superusers and admin-group members.
     """
 
     def has_permission(self, request, view):
@@ -12,7 +12,7 @@ class IsSuperuser(permissions.BasePermission):
         """
         return request.user.is_authenticated and (
             request.user.is_superuser
-            and request.user.groups.filter(name="admin").exists()
+            or request.user.groups.filter(name="admin").exists()
         )
 
 
@@ -35,20 +35,15 @@ class IsInstructorOrAdmin(permissions.BasePermission):
 
     def has_permission(self, request, view):
         try:
+            user = request.user
             if request.method == "POST":
-                return request.user.groups.filter(name="instructor").exists()
-            return (
-                request.user.groups.filter(name="instructor").exists()
-                or request.user.groups.filter(name="admin").exists()
-            )
+                return user.is_instructor and not user.is_admin
+            return user.is_instructor or user.is_admin
         except (AttributeError, TypeError):
             return False
 
     def has_object_permission(self, request, view, obj):
-        return (
-            request.user == obj.instructor
-            or request.user.groups.filter(name="admin").exists()
-        )
+        return request.user == obj.instructor or request.user.is_admin
 
 
 class IsInstructorOrReadOnly(permissions.BasePermission):

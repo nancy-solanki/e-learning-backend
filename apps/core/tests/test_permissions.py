@@ -46,14 +46,17 @@ def test_request_permission_matrix(role_user, role, method):
     assert bool(IsInstructorOrReadOnly().has_permission(request, None)) == (
         safe or role == "instructor"
     )
-    expected = role == "instructor" or (method != "POST" and role == "admin")
+    expected = role == "instructor" or (
+        method != "POST" and role in ("admin", "superuser")
+    )
     assert bool(IsInstructorOrAdmin().has_permission(request, None)) == expected
     for permission in (IsOwnerOrReadOnly(), IsOwnerOrInstructor()):
         assert bool(permission.has_permission(request, None)) == (role != "anonymous")
 
 
 @pytest.mark.parametrize(
-    "relation", ["owner", "instructor", "course_instructor", "stranger", "admin"]
+    "relation",
+    ["owner", "instructor", "course_instructor", "stranger", "admin"],
 )
 @pytest.mark.parametrize("method", ["GET", "PATCH"])
 def test_object_permission_matrix(role_user, relation, method):
@@ -86,6 +89,12 @@ def test_object_permission_matrix(role_user, relation, method):
     assert bool(IsInstructorOrAdmin().has_object_permission(request, None, obj)) == (
         relation in ("instructor", "admin")
     )
+
+
+def test_superuser_has_admin_object_permission(role_user):
+    request = SimpleNamespace(user=role_user("superuser"), method="PATCH")
+    obj = SimpleNamespace(instructor=role_user("instructor"))
+    assert IsInstructorOrAdmin().has_object_permission(request, None, obj)
 
 
 def test_non_instructor_bank_owner_cannot_write(role_user):
