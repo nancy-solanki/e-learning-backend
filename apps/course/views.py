@@ -7,19 +7,33 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from apps.category.models import Category
-from apps.core.moderation import AdminStatusOnlyMixin, IsInstructorOrContentAdmin
-from apps.core.permission import IsSuperuserOrReadOnly
+from apps.core.moderation import AdminStatusOnlyMixin
+from apps.core.permission import IsInstructorOrAdmin, IsSuperuserOrReadOnly
 from apps.core.schema import MessageSerializer
+from apps.localization.models import Localization
+from apps.localization.serializers import LocalizationSerializer
 
 from .filters import CourseFilter, ManagementCourseFilter
 from .models import Course
 from .serializers import (
+    CourseResponseSerializer,
     CourseSerializer,
     FilteredCourseSerializer,
 )
 from .service import CourseService
 
 # Create your views here.
+
+
+@extend_schema(
+    tags=["Course"], description="List active localizations for course selection."
+)
+class CourseLocalizationListView(ListAPIView):
+    permission_classes = [IsAuthenticated, IsInstructorOrAdmin]
+    serializer_class = LocalizationSerializer
+    queryset = Localization.objects.filter(deleted_at__isnull=True).order_by(
+        "language_name", "country", "id"
+    )
 
 
 class CourseFilteringMixin:
@@ -94,6 +108,7 @@ class CourseByCategoryView(CourseFilteringMixin, ListAPIView):
 
 @extend_schema_view(
     list=extend_schema(
+        responses=CourseResponseSerializer(many=True),
         tags=["Course"],
         description=(
             "List courses within this endpoint’s visibility scope. Public endpoints "
@@ -101,9 +116,12 @@ class CourseByCategoryView(CourseFilteringMixin, ListAPIView):
         ),
     ),
     retrieve=extend_schema(
-        tags=["Course"], description="Retrieve a specific course by ID."
+        responses=CourseResponseSerializer,
+        tags=["Course"],
+        description="Retrieve a specific course by ID.",
     ),
     create=extend_schema(
+        responses={201: CourseResponseSerializer},
         tags=["Course"],
         description=(
             "Create a course as an instructor. Ownership is assigned to the "
@@ -111,10 +129,12 @@ class CourseByCategoryView(CourseFilteringMixin, ListAPIView):
         ),
     ),
     update=extend_schema(
+        responses={200: CourseResponseSerializer},
         tags=["Course"],
         description="Instructors may edit their own course; admins may update only status.",
     ),
     partial_update=extend_schema(
+        responses={200: CourseResponseSerializer},
         tags=["Course"],
         description="Instructors may edit their own course; admins may update only status.",
     ),
@@ -130,7 +150,7 @@ class CourseByCategoryView(CourseFilteringMixin, ListAPIView):
 class AllCourseViewSet(
     AdminStatusOnlyMixin, CourseFilteringMixin, viewsets.ModelViewSet
 ):
-    permission_classes = [IsAuthenticated, IsInstructorOrContentAdmin]
+    permission_classes = [IsAuthenticated, IsInstructorOrAdmin]
     serializer_class = CourseSerializer
     queryset = Course.objects.none()
     filterset_class = ManagementCourseFilter

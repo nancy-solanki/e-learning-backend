@@ -4,6 +4,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     AllCourseViewSet,
     CourseByCategoryView,
+    CourseLocalizationListView,
     CourseViewSet,
 )
 
@@ -16,6 +17,11 @@ allCourseRouter = DefaultRouter()
 allCourseRouter.register("", AllCourseViewSet, basename="Course")
 
 urlpatterns = [
+    path(
+        "localizations/",
+        CourseLocalizationListView.as_view(),
+        name="course-localizations",
+    ),
     path("instructor/all/", include(allCourseRouter.urls)),
     path("", include(courseRouter.urls)),
     path("category/<slug>/", CourseByCategoryView.as_view()),

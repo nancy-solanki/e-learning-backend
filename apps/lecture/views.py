@@ -6,7 +6,8 @@ from rest_framework.generics import ListAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-from apps.core.moderation import AdminStatusOnlyMixin, IsInstructorOrContentAdmin
+from apps.core.moderation import AdminStatusOnlyMixin
+from apps.core.permission import IsInstructorOrAdmin
 from apps.core.schema import MessageSerializer
 
 from .filters import LectureFilter
@@ -89,7 +90,7 @@ class AllLectureViewSet(
     """
 
     admin_delete_status = status.HTTP_200_OK
-    permission_classes = [IsInstructorOrContentAdmin, IsAuthenticated]
+    permission_classes = [IsInstructorOrAdmin, IsAuthenticated]
     serializer_class = LectureSerializer
 
     queryset = Lecture.objects.none()

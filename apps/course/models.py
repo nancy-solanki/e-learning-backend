@@ -54,6 +54,13 @@ class Course(BaseModel):
     )
     # keywords = ArrayField(models.CharField(max_length=200), db_index=True)  # Replaced with tags
     instructor = models.ForeignKey("users.User", on_delete=models.RESTRICT)
+    localization = models.ForeignKey(
+        "localization.Localization",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="courses",
+    )
     categories = models.ManyToManyField("category.Category", related_name="category")
     tags = models.ManyToManyField(Tag, related_name="courses", blank=True)
 

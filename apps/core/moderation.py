@@ -4,20 +4,6 @@ from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
-from .permission import IsInstructorOrAdmin
-
-
-class IsInstructorOrContentAdmin(IsInstructorOrAdmin):
-    def has_permission(self, request, view):
-        if getattr(request.user, "is_admin", False):
-            return request.method != "POST"
-        return super().has_permission(request, view)
-
-    def has_object_permission(self, request, view, obj):
-        if getattr(request.user, "is_admin", False):
-            return True
-        return super().has_object_permission(request, view, obj)
-
 
 class AdminStatusOnlyMixin:
     """Admins may update only status and delete without restoring content."""

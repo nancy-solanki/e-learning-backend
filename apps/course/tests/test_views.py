@@ -1,10 +1,14 @@
+from io import BytesIO
+
 import pytest
 from django.contrib.auth.models import Group
+from django.core.files.uploadedfile import SimpleUploadedFile
+from PIL import Image
 
 from apps.category.tests.factories import CategoryFactory
-from apps.common.tests.factories import FileFactory
-from apps.course.models import Course
+from apps.course.models import Course, Tag
 from apps.course.tests.factories import CourseFactory
+from apps.localization.tests.factories import LocalizationFactory
 from apps.users.tests.factories import UserFactory
 
 pytestmark = pytest.mark.django_db
@@ -53,22 +57,45 @@ def test_management_requires_auth(client, course, method):
     assert getattr(client, method)(target).status_code == 401
 
 
-def test_instructor_create_update_and_delete(client, instructor):
+def thumbnail_upload():
+    output = BytesIO()
+    Image.new("RGB", (2, 2)).save(output, format="PNG")
+    return SimpleUploadedFile(
+        "thumbnail.png", output.getvalue(), content_type="image/png"
+    )
+
+
+def test_instructor_create_update_and_delete(client, instructor, mocker):
     client.force_authenticate(instructor)
+    upload = mocker.patch(
+        "cloudinary.uploader.upload",
+        return_value={"secure_url": "https://example.com/thumbnail.png"},
+    )
+    existing_tag = Tag.objects.create(name="Python")
     category = CategoryFactory()
+    localization = LocalizationFactory()
     payload = {
         "title": "New",
         "short_description": "Short",
         "long_description": "Long",
         "learn_description_points": "Basics",
         "requirements": "None",
-        "thumbnail": str(FileFactory().pk),
+        "thumbnail": thumbnail_upload(),
         "categories": [str(category.pk)],
+        "localization": str(localization.pk),
+        "tags": ["python", "Django", "Python"],
     }
-    response = client.post(MANAGE, payload, format="json")
+    response = client.post(MANAGE, payload, format="multipart")
     assert response.status_code == 201, response.data
     course = Course.objects.get(pk=response.data["id"])
     assert course.instructor == instructor
+    assert course.localization == localization
+    assert str(response.data["localization"]) == str(localization.pk)
+    assert response.data["thumbnail"]["url"] == "https://example.com/thumbnail.png"
+    assert {tag["name"] for tag in response.data["tags"]} == {"Python", "Django"}
+    assert existing_tag in course.tags.all()
+    assert Tag.objects.count() == 2
+    assert upload.call_args.kwargs["folder"] == "course"
     target = MANAGE + f"{course.pk}/"
     assert client.patch(target, {"title": "Updated"}, format="json").status_code == 200
     course.refresh_from_db()
@@ -76,6 +103,63 @@ def test_instructor_create_update_and_delete(client, instructor):
     assert client.delete(target).status_code == 204
     course.refresh_from_db()
     assert course.is_deleted
+
+
+def test_update_thumbnail_and_clear_tags(client, course, mocker):
+    client.force_authenticate(course.instructor)
+    course.tags.add(Tag.objects.create(name="Python"))
+    original_thumbnail = course.thumbnail_id
+    target = MANAGE + f"{course.pk}/"
+    response = client.patch(target, {"title": "Updated"}, format="multipart")
+    assert response.status_code == 200
+    course.refresh_from_db()
+    assert course.thumbnail_id == original_thumbnail
+    assert course.tags.count() == 1
+    mocker.patch(
+        "cloudinary.uploader.upload",
+        return_value={"secure_url": "https://example.com/new.png"},
+    )
+    response = client.patch(
+        target, {"thumbnail": thumbnail_upload(), "tags": "[]"}, format="multipart"
+    )
+    assert response.status_code == 200, response.data
+    assert response.data["tags"] == []
+    assert response.data["thumbnail"]["id"] != str(original_thumbnail)
+
+
+@pytest.mark.parametrize("tags", ['["Python", "Django"]', ["Python", "Django"]])
+def test_multipart_tag_names(client, course, tags):
+    client.force_authenticate(course.instructor)
+    response = client.patch(
+        MANAGE + f"{course.pk}/", {"tags": tags}, format="multipart"
+    )
+    assert response.status_code == 200, response.data
+    assert {tag["name"] for tag in response.data["tags"]} == {"Python", "Django"}
+
+
+def test_upload_failure_does_not_change_course_or_create_tags(client, course, mocker):
+    client.force_authenticate(course.instructor)
+    original_thumbnail = course.thumbnail_id
+    mocker.patch("cloudinary.uploader.upload", side_effect=ValueError("Upload failed"))
+    response = client.patch(
+        MANAGE + f"{course.pk}/",
+        {"thumbnail": thumbnail_upload(), "tags": ["New"]},
+        format="multipart",
+    )
+    assert response.status_code == 400
+    assert "thumbnail" in response.data
+    course.refresh_from_db()
+    assert course.thumbnail_id == original_thumbnail
+    assert not Tag.objects.exists()
+
+
+@pytest.mark.parametrize(
+    "payload", [{"tags": ["!!!"]}, {"tags": "[invalid"}, {"thumbnail": "not-a-file"}]
+)
+def test_invalid_upload_payload(client, course, payload):
+    client.force_authenticate(course.instructor)
+    response = client.patch(MANAGE + f"{course.pk}/", payload, format="multipart")
+    assert response.status_code == 400
 
 
 def test_foreign_course_hidden_and_student_denied(client, instructor):

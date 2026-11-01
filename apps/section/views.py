@@ -6,7 +6,8 @@ from rest_framework.generics import ListAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-from apps.core.moderation import AdminStatusOnlyMixin, IsInstructorOrContentAdmin
+from apps.core.moderation import AdminStatusOnlyMixin
+from apps.core.permission import IsInstructorOrAdmin
 from apps.core.schema import MessageSerializer
 from apps.course.models import Course
 
@@ -79,7 +80,7 @@ class SectionViewSet(SectionFilteringMixin, viewsets.ModelViewSet):
 class AllSectionViewSet(
     AdminStatusOnlyMixin, SectionFilteringMixin, viewsets.ModelViewSet
 ):
-    permission_classes = [IsInstructorOrContentAdmin, IsAuthenticated]
+    permission_classes = [IsInstructorOrAdmin, IsAuthenticated]
     serializer_class = SectionSerializer
 
     queryset = Section.objects.none()
