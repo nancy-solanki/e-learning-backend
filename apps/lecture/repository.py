@@ -10,7 +10,14 @@ class LectureRepository:
     def get_active_lectures():
         """Returns a queryset of active lectures."""
         return Lecture.objects.filter(
-            deleted_at__isnull=True, instructor__status="AC", status="published"
+            deleted_at__isnull=True,
+            instructor__status="AC",
+            status="published",
+            section__deleted_at__isnull=True,
+            section__status="published",
+            course__deleted_at__isnull=True,
+            course__status="published",
+            course__instructor__status="AC",
         ).order_by("order")
 
     @staticmethod
@@ -41,7 +48,14 @@ class LectureRepository:
     def get_lectures_by_section_slug(slug):
         """Returns a queryset of lectures for a specific section slug."""
         return Lecture.objects.filter(
-            deleted_at__isnull=True, section__slug=slug
+            deleted_at__isnull=True,
+            section__slug=slug,
+            section__deleted_at__isnull=True,
+            section__status="published",
+            section__instructor__status="AC",
+            course__deleted_at__isnull=True,
+            course__status="published",
+            course__instructor__status="AC",
         ).order_by("order")
 
     @staticmethod

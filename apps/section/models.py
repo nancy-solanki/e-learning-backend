@@ -11,6 +11,7 @@ from apps.core.models import BaseModel
 class Section(BaseModel):
     class Status(models.TextChoices):
         PUBLISHED = "published", _("Published")
+        IN_REVIEW = "in-review", _("In Review")
         DRAFT = "draft", _("Draft")
         REJECTED = "rejected", _("Rejected")
 

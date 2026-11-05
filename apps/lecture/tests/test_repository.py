@@ -8,6 +8,10 @@ pytestmark = pytest.mark.django_db
 
 
 def test_visibility_and_scoping(lecture, instructor):
+    lecture.course.status = "published"
+    lecture.course.save()
+    lecture.section.status = "published"
+    lecture.section.save()
     lecture.status = "published"
     lecture.order = 2
     lecture.save()
@@ -15,7 +19,10 @@ def test_visibility_and_scoping(lecture, instructor):
     draft = LectureFactory(section=lecture.section)
     deleted = LectureFactory(section=lecture.section, deleted_at=timezone.now())
     inactive = LectureFactory(
-        status="published", section__course__instructor__status="SA"
+        status="published",
+        section__status="published",
+        section__course__status="published",
+        section__course__instructor__status="SA",
     )
     assert list(LectureRepository.get_active_lectures()) == [first, lecture]
     assert set(LectureRepository.get_instructor_lectures(instructor)) == {

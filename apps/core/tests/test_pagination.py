@@ -37,11 +37,17 @@ def test_default_pagination_across_collection_endpoints(collection):
                 record.categories.add(category)
             url = f"/api/v1/course/category/{category.slug}/"
         elif collection == "section":
-            records = [SectionFactory(course=course, order=i) for i in range(21)]
+            records = [
+                SectionFactory(course=course, order=i, status="published")
+                for i in range(21)
+            ]
             url = f"/api/v1/section/course/{course.slug}/"
         elif collection == "lecture":
-            section = SectionFactory(course=course)
-            records = [LectureFactory(section=section, order=i) for i in range(21)]
+            section = SectionFactory(course=course, status="published")
+            records = [
+                LectureFactory(section=section, order=i, status="published")
+                for i in range(21)
+            ]
             url = f"/api/v1/lecture/section/{section.slug}/"
         elif collection == "enroll":
             records = EnrollFactory.create_batch(21, course=course)

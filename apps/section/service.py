@@ -19,6 +19,10 @@ class SectionService:
         return SectionRepository.get_sections_by_course(course)
 
     @staticmethod
+    def get_published_sections_by_course(course):
+        return SectionRepository.get_published_sections_by_course(course)
+
+    @staticmethod
     def toggle_section_status(section):
         """
         Toggles the soft delete status of a section.

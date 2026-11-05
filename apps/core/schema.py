@@ -8,6 +8,11 @@ class MessageSerializer(serializers.Serializer):
     message = serializers.CharField(read_only=True)
 
 
+class SubmissionResponseSerializer(serializers.Serializer):
+    message = serializers.CharField(read_only=True)
+    status = serializers.CharField(read_only=True)
+
+
 class DetailSerializer(serializers.Serializer):
     detail = serializers.CharField(read_only=True)
 

@@ -12,6 +12,9 @@ class SectionRepository:
             deleted_at__isnull=True,
             instructor__status="AC",
             status=Section.Status.PUBLISHED,
+            course__deleted_at__isnull=True,
+            course__status="published",
+            course__instructor__status="AC",
         ).order_by("order")
 
     @staticmethod
@@ -27,7 +30,13 @@ class SectionRepository:
     @staticmethod
     def get_published_sections_by_course(course):
         return Section.objects.filter(
-            deleted_at__isnull=True, status=Section.Status.PUBLISHED, course=course
+            deleted_at__isnull=True,
+            status=Section.Status.PUBLISHED,
+            instructor__status="AC",
+            course__deleted_at__isnull=True,
+            course__status="published",
+            course__instructor__status="AC",
+            course=course,
         ).order_by("order")
 
     @staticmethod

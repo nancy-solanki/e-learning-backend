@@ -15,6 +15,7 @@ from apps.core.models import BaseModel
 class Lecture(BaseModel):
     class Status(models.TextChoices):
         PUBLISHED = ("published", "Published")
+        IN_REVIEW = ("in-review", "In Review")
         DRAFT = ("draft", "Draft")
         REJECTED = ("rejected", "Rejected")
 

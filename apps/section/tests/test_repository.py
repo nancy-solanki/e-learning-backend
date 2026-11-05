@@ -9,13 +9,21 @@ pytestmark = pytest.mark.django_db
 
 
 def test_visibility_and_order(section, instructor):
+    section.course.status = "published"
+    section.course.save()
     section.status = "published"
     section.order = 2
     section.save()
     first = SectionFactory(course=section.course, status="published", order=1)
+    first.course.status = "published"
+    first.course.save()
     draft = SectionFactory(course=section.course)
     deleted = SectionFactory(course=section.course, deleted_at=timezone.now())
-    SectionFactory(status="published", course__instructor__status="SA")
+    SectionFactory(
+        status="published",
+        course__status="published",
+        course__instructor__status="SA",
+    )
     assert list(SectionRepository.get_all_published_sections()) == [first, section]
     assert set(SectionRepository.get_sections_by_course(section.course)) == {
         first,

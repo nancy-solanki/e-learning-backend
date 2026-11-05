@@ -6,8 +6,12 @@ pytestmark = pytest.mark.django_db
 
 
 def test_queries_and_lifecycle(section, instructor):
+    section.course.status = "published"
+    section.course.save()
     section.status = "published"
     section.save()
+    section.course.status = "published"
+    section.course.save()
     assert list(SectionService.get_public_queryset()) == [section]
     assert list(SectionService.get_queryset_for_user(instructor)) == [section]
     assert list(SectionService.get_sections_by_course(section.course)) == [section]

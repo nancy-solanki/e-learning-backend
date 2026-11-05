@@ -20,6 +20,8 @@ pytestmark = pytest.mark.django_db
 def content(request):
     name, factory = request.param
     instance = factory()
+    if name == "section":
+        LectureFactory(section=instance)
     base = f"/api/v1/{name}/instructor/all/"
     return instance, base, f"{base}{instance.pk}/"
 

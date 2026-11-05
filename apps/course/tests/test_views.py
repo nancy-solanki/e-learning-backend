@@ -89,6 +89,7 @@ def test_instructor_create_update_and_delete(client, instructor, mocker):
     assert response.status_code == 201, response.data
     course = Course.objects.get(pk=response.data["id"])
     assert course.instructor == instructor
+    assert course.status == Course.Status.DRAFT
     assert course.localization == localization
     assert str(response.data["localization"]) == str(localization.pk)
     assert response.data["thumbnail"]["url"] == "https://example.com/thumbnail.png"
@@ -103,6 +104,29 @@ def test_instructor_create_update_and_delete(client, instructor, mocker):
     assert client.delete(target).status_code == 204
     course.refresh_from_db()
     assert course.is_deleted
+
+
+def test_instructor_submits_course_for_admin_review(client, course):
+    client.force_authenticate(course.instructor)
+    target = MANAGE + f"{course.pk}/"
+    response = client.patch(target, {"status": Course.Status.PUBLISHED}, format="json")
+    assert response.status_code == 400
+    assert "status" in response.data
+
+    response = client.post(target + "submit/")
+    assert response.status_code == 200
+    assert response.data["status"] == Course.Status.IN_REVIEW
+    assert "published once an admin approves" in response.data["message"]
+    course.refresh_from_db()
+    assert course.status == Course.Status.IN_REVIEW
+    assert client.get(PUBLIC + f"{course.slug}/").status_code == 404
+
+    admin = UserFactory()
+    admin.groups.add(Group.objects.get_or_create(name="admin")[0])
+    client.force_authenticate(admin)
+    response = client.patch(target, {"status": Course.Status.PUBLISHED}, format="json")
+    assert response.status_code == 200
+    assert client.get(PUBLIC + f"{course.slug}/").status_code == 200
 
 
 def test_update_thumbnail_and_clear_tags(client, course, mocker):

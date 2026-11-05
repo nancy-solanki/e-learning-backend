@@ -8,6 +8,7 @@ from rest_framework import serializers
 from apps.category.models import Category
 from apps.common.serializers import FileSerializer
 from apps.common.service import FileService
+from apps.core.moderation import InstructorStatusReadOnlyMixin
 from apps.localization.models import Localization
 
 from .models import Course, Tag
@@ -108,7 +109,7 @@ class CourseTagsField(serializers.ListField):
         return super().to_internal_value(value)
 
 
-class CourseSerializer(serializers.ModelSerializer):
+class CourseSerializer(InstructorStatusReadOnlyMixin, serializers.ModelSerializer):
     instructor = serializers.PrimaryKeyRelatedField(read_only=True)
     student_count = serializers.SerializerMethodField()
     thumbnail = serializers.ImageField(write_only=True)

@@ -6,7 +6,7 @@ from rest_framework.generics import ListAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-from apps.core.moderation import AdminStatusOnlyMixin
+from apps.core.moderation import AdminStatusOnlyMixin, InstructorSubmissionMixin
 from apps.core.permission import IsInstructorOrAdmin
 from apps.core.schema import MessageSerializer
 
@@ -52,26 +52,42 @@ class LectureViewSet(LectureFilteringMixin, viewsets.ModelViewSet):
 
 @extend_schema_view(
     list=extend_schema(
+        responses=LectureSerializer(many=True),
         tags=["Lecture"],
         description="List all lectures for management. Admin sees all, instructors see their own.",
     ),
     retrieve=extend_schema(
-        tags=["Lecture"], description="Retrieve a specific lecture for management."
+        responses=LectureSerializer,
+        tags=["Lecture"],
+        description="Retrieve a specific lecture for management.",
     ),
     create=extend_schema(
+        request=LectureSerializer,
+        responses={201: LectureSerializer},
         tags=["Lecture"],
         description=(
             "Create a lecture as a non-admin instructor. "
-            "Handles video processing and course updates."
+            "Course and section must belong to the instructor. Handles video processing "
+            "and course updates. New lectures default to draft; only admins may set status."
         ),
     ),
     update=extend_schema(
+        request=LectureSerializer,
+        responses={200: LectureSerializer},
         tags=["Lecture"],
-        description="Instructors may edit their own lecture; admins may update only status.",
+        description=(
+            "Instructors may edit their own lecture but must submit it for review "
+            "before publication; admins may update only status."
+        ),
     ),
     partial_update=extend_schema(
+        request=LectureSerializer,
+        responses={200: LectureSerializer},
         tags=["Lecture"],
-        description="Instructors may edit their own lecture; admins may update only status.",
+        description=(
+            "Instructors may edit their own lecture but must submit it for review "
+            "before publication; admins may update only status."
+        ),
     ),
     destroy=extend_schema(
         responses={200: MessageSerializer},
@@ -83,13 +99,17 @@ class LectureViewSet(LectureFilteringMixin, viewsets.ModelViewSet):
     ),
 )
 class AllLectureViewSet(
-    AdminStatusOnlyMixin, LectureFilteringMixin, viewsets.ModelViewSet
+    InstructorSubmissionMixin,
+    AdminStatusOnlyMixin,
+    LectureFilteringMixin,
+    viewsets.ModelViewSet,
 ):
     """
     ViewSet for administrator and instructor to manage all lectures.
     """
 
     admin_delete_status = status.HTTP_200_OK
+    submission_label = "Lecture"
     permission_classes = [IsInstructorOrAdmin, IsAuthenticated]
     serializer_class = LectureSerializer
 

@@ -2,11 +2,12 @@ from django.http import Http404
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import filters, status, viewsets
+from rest_framework.exceptions import ValidationError
 from rest_framework.generics import ListAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-from apps.core.moderation import AdminStatusOnlyMixin
+from apps.core.moderation import AdminStatusOnlyMixin, InstructorSubmissionMixin
 from apps.core.permission import IsInstructorOrAdmin
 from apps.core.schema import MessageSerializer
 from apps.course.models import Course
@@ -62,11 +63,17 @@ class SectionViewSet(SectionFilteringMixin, viewsets.ModelViewSet):
     ),
     update=extend_schema(
         tags=["Section"],
-        description="Instructors may edit their own section; admins may update only status.",
+        description=(
+            "Instructors may edit their own section but must submit it for review "
+            "before publication; admins may update only status."
+        ),
     ),
     partial_update=extend_schema(
         tags=["Section"],
-        description="Instructors may edit their own section; admins may update only status.",
+        description=(
+            "Instructors may edit their own section but must submit it for review "
+            "before publication; admins may update only status."
+        ),
     ),
     destroy=extend_schema(
         responses={200: MessageSerializer, 204: None},
@@ -78,8 +85,12 @@ class SectionViewSet(SectionFilteringMixin, viewsets.ModelViewSet):
     ),
 )
 class AllSectionViewSet(
-    AdminStatusOnlyMixin, SectionFilteringMixin, viewsets.ModelViewSet
+    InstructorSubmissionMixin,
+    AdminStatusOnlyMixin,
+    SectionFilteringMixin,
+    viewsets.ModelViewSet,
 ):
+    submission_label = "Section"
     permission_classes = [IsInstructorOrAdmin, IsAuthenticated]
     serializer_class = SectionSerializer
 
@@ -90,6 +101,18 @@ class AllSectionViewSet(
 
     def perform_create(self, serializer):
         serializer.save(instructor=self.request.user)
+
+    def validate_submission(self, instance):
+        super().validate_submission(instance)
+        if not instance.lecture.filter(deleted_at__isnull=True).exists():
+            raise ValidationError(
+                {
+                    "detail": (
+                        "Add at least one non-deleted lecture before submitting "
+                        "this section for review."
+                    )
+                }
+            )
 
     def _destroy_instructor(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -118,8 +141,9 @@ class SectionByCourseView(SectionFilteringMixin, ListAPIView):
             course = (
                 Course.objects.filter(deleted_at__isnull=True)
                 .filter(instructor__status="AC")
+                .filter(status="published")
                 .get(slug=self.kwargs["slug"])
             )
-            return SectionService.get_sections_by_course(course)
+            return SectionService.get_published_sections_by_course(course)
         except Course.DoesNotExist:
             raise Http404

@@ -7,7 +7,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from apps.category.models import Category
-from apps.core.moderation import AdminStatusOnlyMixin
+from apps.core.moderation import AdminStatusOnlyMixin, InstructorSubmissionMixin
 from apps.core.permission import IsInstructorOrAdmin, IsSuperuserOrReadOnly
 from apps.core.schema import MessageSerializer
 from apps.localization.models import Localization
@@ -131,12 +131,18 @@ class CourseByCategoryView(CourseFilteringMixin, ListAPIView):
     update=extend_schema(
         responses={200: CourseResponseSerializer},
         tags=["Course"],
-        description="Instructors may edit their own course; admins may update only status.",
+        description=(
+            "Instructors may edit their own course but must submit it for review "
+            "before publication; admins may update only status."
+        ),
     ),
     partial_update=extend_schema(
         responses={200: CourseResponseSerializer},
         tags=["Course"],
-        description="Instructors may edit their own course; admins may update only status.",
+        description=(
+            "Instructors may edit their own course but must submit it for review "
+            "before publication; admins may update only status."
+        ),
     ),
     destroy=extend_schema(
         responses={200: MessageSerializer, 204: None},
@@ -148,8 +154,12 @@ class CourseByCategoryView(CourseFilteringMixin, ListAPIView):
     ),
 )
 class AllCourseViewSet(
-    AdminStatusOnlyMixin, CourseFilteringMixin, viewsets.ModelViewSet
+    InstructorSubmissionMixin,
+    AdminStatusOnlyMixin,
+    CourseFilteringMixin,
+    viewsets.ModelViewSet,
 ):
+    submission_label = "Course"
     permission_classes = [IsAuthenticated, IsInstructorOrAdmin]
     serializer_class = CourseSerializer
     queryset = Course.objects.none()

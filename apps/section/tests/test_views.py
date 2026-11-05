@@ -1,6 +1,7 @@
 import pytest
 from django.contrib.auth.models import Group
 
+from apps.lecture.tests.factories import LectureFactory
 from apps.section.models import Section
 from apps.section.tests.factories import SectionFactory
 from apps.users.tests.factories import UserFactory
@@ -12,6 +13,8 @@ MANAGE = PUBLIC + "instructor/all/"
 
 def test_public_visibility_and_options(client, section):
     assert client.get(PUBLIC).data["count"] == 0
+    section.course.status = "published"
+    section.course.save()
     section.status = "published"
     section.save()
     assert client.get(PUBLIC + f"{section.pk}/").status_code == 200
@@ -20,6 +23,10 @@ def test_public_visibility_and_options(client, section):
 
 
 def test_course_lookup(client, section):
+    section.course.status = "published"
+    section.course.save()
+    section.status = "published"
+    section.save()
     response = client.get(PUBLIC + f"course/{section.course.slug}/")
     assert response.status_code == 200
     assert response.data["results"][0]["id"] == str(section.pk)
@@ -53,10 +60,55 @@ def test_create_update_delete(client, section, instructor):
     assert created.is_deleted
 
 
+def test_section_requires_lecture_and_admin_approval(client, section):
+    admin = UserFactory()
+    admin.groups.add(Group.objects.get_or_create(name="admin")[0])
+    client.force_authenticate(admin)
+    response = client.patch(
+        MANAGE + f"{section.pk}/",
+        {"status": Section.Status.PUBLISHED},
+        format="json",
+    )
+    assert response.status_code == 400
+    assert "status" in response.data
+
+    client.force_authenticate(section.instructor)
+    target = MANAGE + f"{section.pk}/"
+    response = client.post(target + "submit/")
+    assert response.status_code == 400
+    assert "lecture" in response.data["detail"].lower()
+
+    LectureFactory(section=section)
+    response = client.post(target + "submit/")
+    assert response.status_code == 200
+    section.refresh_from_db()
+    assert section.status == Section.Status.IN_REVIEW
+
+    section.course.status = "published"
+    section.course.save()
+    assert client.get(PUBLIC + f"{section.pk}/").status_code == 404
+
+    client.force_authenticate(admin)
+    response = client.patch(target, {"status": Section.Status.PUBLISHED}, format="json")
+    assert response.status_code == 200
+    assert client.get(PUBLIC + f"{section.pk}/").status_code == 200
+
+
 def test_foreign_hidden_student_denied(client, instructor):
     foreign = SectionFactory()
     client.force_authenticate(instructor)
     assert client.patch(MANAGE + f"{foreign.pk}/", {}).status_code == 404
+    response = client.post(
+        MANAGE,
+        {
+            "title": "Foreign course section",
+            "description": "Intro",
+            "course": str(foreign.course_id),
+        },
+        format="json",
+    )
+    assert response.status_code == 400
+    assert "course" in response.data
     client.force_authenticate(UserFactory())
     assert client.get(MANAGE).status_code == 403
 
@@ -79,7 +131,11 @@ def test_section_search_and_filters(client, instructor, endpoint, parameter):
     matching = SectionFactory(
         course__instructor=instructor, title="Python basics", status="published"
     )
+    matching.course.status = "published"
+    matching.course.save()
     other = SectionFactory(status="published", title="Java basics")
+    other.course.status = "published"
+    other.course.save()
     if endpoint == MANAGE:
         client.force_authenticate(instructor)
         other.instructor = instructor
@@ -107,31 +163,40 @@ def test_section_search_and_filters(client, instructor, endpoint, parameter):
 @pytest.mark.parametrize("field", ["title", "description", "course"])
 def test_section_search_fields(client, field):
     section = SectionFactory(status="published")
+    section.course.status = "published"
+    section.course.save()
     if field == "course":
         section.course.title = "Unique search phrase"
         section.course.save()
     else:
         setattr(section, field, "Unique search phrase")
         section.save()
-    SectionFactory(status="published")
+    other = SectionFactory(status="published")
+    other.course.status = "published"
+    other.course.save()
     response = client.get(PUBLIC, {"search": "unique search"})
     assert [row["id"] for row in response.data["results"]] == [str(section.pk)]
     assert client.get(PUBLIC, {"search": "missing"}).data["count"] == 0
 
 
 def test_combined_filters_and_course_scope(client, section):
+    section.course.status = "published"
+    section.course.save()
     section.title = "Python"
+    section.status = "published"
     section.save()
     SectionFactory(course=section.course, title="Java")
     foreign = SectionFactory(title="Python")
     endpoint = PUBLIC + f"course/{section.course.slug}/"
-    response = client.get(endpoint, {"search": "python", "status": "draft"})
+    response = client.get(endpoint, {"search": "python", "status": "published"})
     assert [row["id"] for row in response.data["results"]] == [str(section.pk)]
     assert client.get(endpoint, {"course": str(foreign.course_id)}).data["count"] == 0
 
 
 def test_filters_preserve_section_visibility(client, instructor):
     visible = SectionFactory(status="published", course__instructor=instructor)
+    visible.course.status = "published"
+    visible.course.save()
     SectionFactory(status="draft", course=visible.course)
     deleted = SectionFactory(status="published", course=visible.course)
     deleted.soft_delete()
@@ -154,6 +219,9 @@ def test_invalid_section_filters(client, parameter):
 def test_section_ordering(client):
     later = SectionFactory(status="published", order=2, title="Alpha")
     earlier = SectionFactory(status="published", order=1, title="Beta")
+    for section in (later, earlier):
+        section.course.status = "published"
+        section.course.save()
     response = client.get(PUBLIC)
     assert [row["id"] for row in response.data["results"]] == [
         str(earlier.pk),
