@@ -36,14 +36,20 @@ class IsInstructorOrAdmin(permissions.BasePermission):
     def has_permission(self, request, view):
         try:
             user = request.user
+            is_instructor = user.groups.filter(name="instructor").exists()
+            is_admin = user.is_superuser or user.groups.filter(name="admin").exists()
             if request.method == "POST":
-                return user.is_instructor and not user.is_admin
-            return user.is_instructor or user.is_admin
+                return is_instructor and not is_admin
+            return is_instructor or is_admin
         except (AttributeError, TypeError):
             return False
 
     def has_object_permission(self, request, view, obj):
-        return request.user == obj.instructor or request.user.is_admin
+        return (
+            request.user == obj.instructor
+            or request.user.is_superuser
+            or request.user.groups.filter(name="admin").exists()
+        )
 
 
 class IsInstructorOrReadOnly(permissions.BasePermission):

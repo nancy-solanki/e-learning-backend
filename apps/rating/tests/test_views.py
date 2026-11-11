@@ -134,6 +134,12 @@ def test_instructor_lists_only_own_courses(client, rating, instructor):
     assert [row["id"] for row in response.data["results"]] == [str(rating.pk)]
 
 
+def test_non_instructor_cannot_list_instructor_ratings(client, rating):
+    client.force_authenticate(rating.user)
+    response = client.get(reverse("rating:rating-by-instructor"))
+    assert response.status_code == 403
+
+
 def test_search(client, rating):
     RatingFactory(comment="Unrelated")
     client.force_authenticate(rating.user)

@@ -4,7 +4,7 @@ from rest_framework import filters, viewsets
 from rest_framework.generics import ListAPIView
 from rest_framework.permissions import BasePermission, IsAuthenticated
 
-from apps.core.permission import IsOwnerOrInstructor
+from apps.core.permission import IsInstructorOrAdmin, IsOwnerOrInstructor
 
 from .filters import RatingFilter
 from .models import Rating
@@ -105,7 +105,7 @@ class RatingByInstructorView(RatingFilteringMixin, ListAPIView):
 
     serializer_class = RatingSerializer
     queryset = Rating.objects.none()
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsInstructorOrAdmin]
 
     def get_queryset(self):
         return RatingService.get_instructor_course_ratings(self.request.user)
