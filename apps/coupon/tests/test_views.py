@@ -129,9 +129,11 @@ def test_extended_filters(client, query):
 def test_deleted_filter_respects_instructor_scope(client, coupon, instructor):
     coupon.soft_delete()
     client.force_authenticate(SuperuserFactory())
-    assert client.get(url(), {"is_deleted": "true"}).data["count"] == 1
+    assert client.get(url()).data["count"] == 0
+    assert client.get(url(), {"is_deleted": "true"}).data["count"] == 0
     assert client.get(url(), {"is_deleted": "false"}).data["count"] == 0
     client.force_authenticate(instructor)
+    assert client.get(url()).data["count"] == 0
     assert client.get(url(), {"is_deleted": "true"}).data["count"] == 0
 
 

@@ -2,6 +2,7 @@ from django.core.exceptions import ValidationError
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import filters, status, viewsets
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -23,18 +24,21 @@ class IsInstructorOrReadOnly(BasePermission):
     """
 
     def has_permission(self, request, view):
-        if request.user.is_admin:
+        user = request.user
+        if user.is_admin:
             return True
+        if not user.is_authenticated or not user.is_instructor:
+            return False
         if request.method == "POST":
             course_id = request.data.get("course")
             if not course_id:
                 return False
             try:
                 course = Course.objects.get(id=course_id)
-                return request.user == course.instructor
+                return user == course.instructor
             except (Course.DoesNotExist, ValidationError):
                 return False
-        return request.user.is_instructor
+        return True
 
 
 @extend_schema_view(
@@ -77,6 +81,17 @@ class CouponViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return CouponService.get_coupons(self.request.user).select_related("course")
+
+    def perform_create(self, serializer):
+        if not self.request.user.is_admin:
+            course = serializer.validated_data["course"]
+            if course.instructor_id != self.request.user.pk:
+                raise PermissionDenied(
+                    "You can only create coupons for your own courses."
+                )
+            serializer.save(is_instructor_created=True)
+            return
+        serializer.save()
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()

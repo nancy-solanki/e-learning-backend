@@ -8,14 +8,16 @@ class CouponRepository:
 
     @staticmethod
     def get_all_coupons():
-        """Returns a queryset of all coupons for admin."""
-        return Coupon.objects.all().order_by("-created_at")
+        """Returns non-deleted coupons for admin."""
+        return Coupon.objects.filter(deleted_at__isnull=True).order_by("-created_at")
 
     @staticmethod
     def get_instructor_coupons(user):
-        """Returns a queryset of coupons created by/for the instructor."""
+        """Returns non-deleted instructor-created coupons for this instructor."""
         return Coupon.objects.filter(
-            deleted_at__isnull=True, is_instructor_created=True, course__instructor=user
+            deleted_at__isnull=True,
+            is_instructor_created=True,
+            course__instructor=user,
         ).order_by("-created_at")
 
     @staticmethod

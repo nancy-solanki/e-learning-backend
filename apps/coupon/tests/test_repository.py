@@ -21,7 +21,6 @@ def test_scope_and_soft_deletion(coupon, instructor, course):
         coupon,
         foreign,
         admin_created,
-        deleted,
     }
     assert CouponRepository.get_coupon_by_code(coupon.code) == coupon
     assert CouponRepository.get_coupon_by_code(deleted.code) is None
