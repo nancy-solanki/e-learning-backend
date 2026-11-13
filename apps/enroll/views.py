@@ -222,10 +222,15 @@ class EnrollByCourseView(EnrollmentFilteringMixin, ListAPIView):
         Retrieve enrollments for a course by slug.
         """
         enrollments = EnrollService.get_enrollments_by_course(self.kwargs["slug"])
+        if not enrollments.exists():
+            course_exists = Course.objects.filter(
+                slug=self.kwargs["slug"], status="published", deleted_at__isnull=True
+            ).exists()
+            if not course_exists:
+                raise Http404
+
         if not self.request.user.is_admin:
             enrollments = enrollments.filter(
                 Q(user=self.request.user) | Q(course__instructor=self.request.user)
             )
-        if not enrollments.exists():
-            raise Http404
         return enrollments

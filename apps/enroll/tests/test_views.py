@@ -43,7 +43,33 @@ def test_course_lookup(client, enroll):
     assert response.status_code == 200
     assert response.data["results"][0]["id"] == str(enroll.pk)
     enroll.soft_delete()
+    response = client.get(target)
+    assert response.status_code == 200
+    assert response.data["count"] == 0
+    assert response.data["results"] == []
+
+
+def test_course_lookup_returns_empty_for_enrollment_outside_caller_scope(
+    client, enroll
+):
+    enroll.course.status = "published"
+    enroll.course.save()
+    client.force_authenticate(UserFactory())
+
+    response = client.get(f"/api/v1/enroll/course/{enroll.course.slug}/")
+
+    assert response.status_code == 200
+    assert response.data["count"] == 0
+    assert response.data["results"] == []
+
+
+def test_course_lookup_still_hides_unpublished_or_unknown_courses(client, enroll):
+    enroll.course.instructor.become_instructor()
+    client.force_authenticate(enroll.course.instructor)
+    target = f"/api/v1/enroll/course/{enroll.course.slug}/"
+
     assert client.get(target).status_code == 404
+    assert client.get("/api/v1/enroll/course/unknown-course/").status_code == 404
 
 
 @pytest.fixture(params=["management", "course"])
