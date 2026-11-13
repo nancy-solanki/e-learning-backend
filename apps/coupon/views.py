@@ -1,4 +1,5 @@
 from django.core.exceptions import ValidationError
+from django.http import Http404
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import filters, status, viewsets
@@ -94,7 +95,17 @@ class CouponViewSet(viewsets.ModelViewSet):
         serializer.save()
 
     def destroy(self, request, *args, **kwargs):
-        instance = self.get_object()
+        try:
+            instance = self.get_object()
+        except Http404 as exc:
+            # Admins can call DELETE again to restore a soft-deleted coupon;
+            # deleted coupons remain hidden from ordinary list/detail queries.
+            if not request.user.is_admin:
+                raise
+            instance = Coupon.objects.filter(pk=kwargs.get(self.lookup_field)).first()
+            if instance is None:
+                raise exc
+            self.check_object_permissions(request, instance)
         message = CouponService.toggle_coupon_status(instance)
         return Response({"message": message}, status=status.HTTP_200_OK)
 

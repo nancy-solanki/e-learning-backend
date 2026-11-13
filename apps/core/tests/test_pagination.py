@@ -54,6 +54,7 @@ def test_default_pagination_across_collection_endpoints(collection):
             url = f"/api/v1/enroll/course/{course.slug}/"
         else:
             records = RatingFactory.create_batch(21, course=course)
+            course.instructor.become_instructor()
             url = "/api/v1/rating/instructor/"
 
     first = client.get(url)

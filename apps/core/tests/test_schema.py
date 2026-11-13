@@ -176,7 +176,10 @@ def test_course_roster_isolation():
     client = APIClient()
     url = f"/api/v1/enroll/course/{enrollment.course.slug}/"
     client.force_authenticate(UserFactory())
-    assert client.get(url).status_code == 404
+    response = client.get(url)
+    assert response.status_code == 200
+    assert response.data["count"] == 0
+    assert response.data["results"] == []
     client.force_authenticate(enrollment.user)
     assert [row["id"] for row in client.get(url).data["results"]] == [
         str(enrollment.pk)
