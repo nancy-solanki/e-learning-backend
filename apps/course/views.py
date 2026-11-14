@@ -46,6 +46,7 @@ class CourseLocalizationListView(ListAPIView):
 class CourseTagListView(ListAPIView):
     permission_classes = [IsAuthenticated, IsInstructorOrAdmin]
     serializer_class = TagSerializer
+    queryset = Tag.objects.none()
 
     def get_queryset(self):
         queryset = Tag.objects.filter(deleted_at__isnull=True)
