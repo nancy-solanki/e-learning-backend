@@ -1,5 +1,7 @@
 from django.urls import include, path
 
+from apps.course.views import CourseTagListView
+
 urlpatterns = [
     path("dashboard/", include("apps.common.urls")),
     path("auth/", include("apps.auth.urls", namespace="auth")),
@@ -9,6 +11,7 @@ urlpatterns = [
     path("localization/", include("apps.localization.urls", namespace="localization")),
     path("wallet/", include("apps.wallet.urls", namespace="wallet")),
     path("course/", include("apps.course.urls", namespace="course")),
+    path("tag/", CourseTagListView.as_view(), name="tag-list"),
     path("section/", include("apps.section.urls", namespace="section")),
     path("lecture/", include("apps.lecture.urls", namespace="lecture")),
     path("coupon/", include("apps.coupon.urls", namespace="coupon")),

@@ -176,3 +176,10 @@ class CourseSerializer(InstructorStatusReadOnlyMixin, serializers.ModelSerialize
 class CourseResponseSerializer(CourseSerializer):
     thumbnail = FileSerializer(read_only=True)
     tags = TagSerializer(many=True, read_only=True)
+
+
+class InstructorCourseResponseSerializer(CourseResponseSerializer):
+    """Read shape returned by the instructor course management list endpoint."""
+
+    class Meta(CourseResponseSerializer.Meta):
+        fields = "__all__"
