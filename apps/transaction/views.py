@@ -5,7 +5,11 @@ from rest_framework.permissions import IsAuthenticated
 
 from .filters import TransactionFilter
 from .models import Transaction
-from .serializers import TransactionSerializer
+from .serializers import (
+    AdminTransactionSerializer,
+    TransactionPageSerializer,
+    TransactionSerializer,
+)
 from .service import TransactionService
 
 
@@ -13,12 +17,18 @@ from .service import TransactionService
     get=extend_schema(
         tags=["Transaction"],
         description=(
-            "Retrieve transactions for the authenticated user. Filter by status, "
+            "Retrieve active transactions visible to the caller: admins (superusers "
+            "or admin-group members) see all transactions; instructors see "
+            "transactions associated with their own active wallet; other "
+            "authenticated users see only transactions they own. Admin and "
+            "instructor responses include an expanded user summary; other users "
+            "receive the base transaction representation. Filter by status, "
             "transaction_type, wallet UUID, exact tx_id, amount_min/max, or "
             "inclusive creation dates (created_at_after/before). Search by "
             "transaction UUID, tx_id, or description. Order by created_at or "
             "amount (prefix with '-' for descending)."
         ),
+        responses={200: TransactionPageSerializer},
     ),
 )
 class TransactionView(mixins.ListModelMixin, generics.GenericAPIView):
@@ -36,7 +46,16 @@ class TransactionView(mixins.ListModelMixin, generics.GenericAPIView):
     ordering = ("-created_at",)
 
     def get_queryset(self):
+        if self.request.user.is_admin:
+            return TransactionService.get_admin_transactions()
+        if self.request.user.is_instructor:
+            return TransactionService.get_instructor_transactions(self.request.user)
         return TransactionService.get_user_transactions(self.request.user)
+
+    def get_serializer_class(self):
+        if self.request.user.is_admin or self.request.user.is_instructor:
+            return AdminTransactionSerializer
+        return TransactionSerializer
 
     def get(self, request, *args, **kwargs):
         return self.list(request, *args, **kwargs)

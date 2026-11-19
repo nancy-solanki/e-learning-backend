@@ -15,6 +15,20 @@ class TransactionRepository:
         return TransactionRepository.get_transaction_queryset().filter(user=user)
 
     @staticmethod
+    def get_admin_transactions():
+        return TransactionRepository.get_transaction_queryset().select_related(
+            "user", "wallet"
+        )
+
+    @staticmethod
+    def get_instructor_transactions(user):
+        return (
+            TransactionRepository.get_transaction_queryset()
+            .filter(wallet__user=user, wallet__deleted_at__isnull=True)
+            .select_related("user", "wallet")
+        )
+
+    @staticmethod
     def get_transaction_by_id(transaction_id):
         return (
             TransactionRepository.get_transaction_queryset()

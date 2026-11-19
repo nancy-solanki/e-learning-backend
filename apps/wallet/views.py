@@ -7,13 +7,15 @@ from drf_spectacular.utils import (
 from rest_framework import filters, viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
+from apps.core.permission import IsSuperuser
 from apps.core.schema import DetailSerializer
 
 from .filters import WalletFilter
 from .models import Wallet
 from .permissions import IsWalletUser
-from .serializers import WalletSerializer
+from .serializers import WalletOptionSerializer, WalletSerializer
 from .service import WalletService
 
 # Create your views here.
@@ -22,6 +24,23 @@ from .service import WalletService
 @extend_schema_serializer(many=False)
 class WalletResponseSerializer(WalletSerializer):
     """The collection URL returns one wallet, not a paginated list."""
+
+
+class AdminWalletOptionsView(APIView):
+    permission_classes = [IsSuperuser]
+
+    @extend_schema(
+        tags=["Wallet"],
+        responses={200: WalletOptionSerializer(many=True)},
+        description=(
+            "List active, non-site wallets belonging to admin or instructor users "
+            "for the admin panel transaction wallet filter. Each wallet option "
+            "contains its UUID and owner summary."
+        ),
+    )
+    def get(self, request):
+        wallets = WalletService.get_admin_wallet_options()
+        return Response(WalletOptionSerializer(wallets, many=True).data)
 
 
 @extend_schema_view(

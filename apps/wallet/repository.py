@@ -1,3 +1,5 @@
+from django.db import models
+
 from .models import Wallet
 
 
@@ -9,6 +11,23 @@ class WalletRepository:
     @staticmethod
     def get_wallet_queryset_by_user(user):
         return Wallet.objects.filter(user=user, deleted_at__isnull=True)
+
+    @staticmethod
+    def get_admin_wallet_options():
+        return (
+            Wallet.objects.filter(
+                deleted_at__isnull=True,
+                is_site_wallet=False,
+                user__isnull=False,
+            )
+            .filter(
+                models.Q(user__is_superuser=True)
+                | models.Q(user__groups__name__in=("admin", "instructor"))
+            )
+            .select_related("user")
+            .distinct()
+            .order_by("user__username", "pk")
+        )
 
     @staticmethod
     def get_wallet_by_user(user):

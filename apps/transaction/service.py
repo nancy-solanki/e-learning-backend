@@ -15,6 +15,14 @@ class TransactionService:
         return TransactionRepository.get_user_transactions(user)
 
     @staticmethod
+    def get_admin_transactions():
+        return TransactionRepository.get_admin_transactions()
+
+    @staticmethod
+    def get_instructor_transactions(user):
+        return TransactionRepository.get_instructor_transactions(user)
+
+    @staticmethod
     def create_transaction(
         user,
         amount,

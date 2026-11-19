@@ -7,7 +7,7 @@ from .overview import (
     WalletExportView,
     WalletOverviewView,
 )
-from .views import WalletViewSet
+from .views import AdminWalletOptionsView, WalletViewSet
 
 app_name = "wallet"
 
@@ -15,6 +15,7 @@ router = DefaultRouter()
 router.register(r"", WalletViewSet, basename="wallet")
 
 urlpatterns = [
+    path("options/", AdminWalletOptionsView.as_view(), name="admin-wallet-options"),
     path("overview/", WalletOverviewView.as_view(), name="overview"),
     path("transactions/", WalletEntriesView.as_view(), name="entries"),
     path("transactions/export/", WalletExportView.as_view(), name="export"),

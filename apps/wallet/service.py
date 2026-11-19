@@ -11,6 +11,10 @@ class WalletService:
         return WalletRepository.get_wallet_queryset_by_user(user)
 
     @staticmethod
+    def get_admin_wallet_options():
+        return WalletRepository.get_admin_wallet_options()
+
+    @staticmethod
     def get_wallet_by_user(user):
         return WalletRepository.get_wallet_by_user(user)
 

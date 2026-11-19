@@ -4,6 +4,7 @@ import pytest
 from django.contrib.auth.models import AnonymousUser, Group
 
 from apps.users.tests.factories import UserFactory
+from apps.wallet.models import Wallet
 from apps.wallet.permissions import IsWalletUser
 from apps.wallet.tests.factories import WalletFactory
 
@@ -18,6 +19,36 @@ def test_anonymous_and_student_denied(client):
     assert not IsWalletUser().has_permission(
         SimpleNamespace(user=AnonymousUser()), None
     )
+
+
+def test_admin_wallet_options_only_lists_active_admin_and_instructor_wallets(client):
+    admin = UserFactory()
+    admin.groups.add(Group.objects.get_or_create(name="admin")[0])
+    admin_wallet = Wallet.objects.get(user=admin)
+
+    instructor = UserFactory()
+    instructor.groups.add(Group.objects.get_or_create(name="instructor")[0])
+    instructor_wallet = Wallet.objects.get(user=instructor)
+
+    WalletFactory()
+    deleted_wallet = WalletFactory()
+    deleted_wallet.soft_delete()
+    WalletFactory(user=None, is_site_wallet=True)
+
+    url = BASE + "options/"
+    assert client.get(url).status_code == 401
+
+    client.force_authenticate(instructor)
+    assert client.get(url).status_code == 403
+
+    client.force_authenticate(admin)
+    response = client.get(url)
+    assert response.status_code == 200
+    assert {row["id"] for row in response.data} == {
+        str(admin_wallet.pk),
+        str(instructor_wallet.pk),
+    }
+    assert all("user" in row for row in response.data)
 
 
 @pytest.mark.parametrize("role", ["admin", "instructor"])
