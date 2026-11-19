@@ -15,10 +15,6 @@ class OrderRepository:
         return OrderRepository.get_order_queryset().filter(user=user)
 
     @staticmethod
-    def get_instructor_orders(user):
-        return OrderRepository.get_order_queryset().filter(instructor=user)
-
-    @staticmethod
     def get_order_by_id(order_id):
         return OrderRepository.get_order_queryset().filter(id=order_id).first()
 

@@ -8,22 +8,43 @@ pytestmark = pytest.mark.django_db
 BASE = "/api/v1/order/"
 
 
-@pytest.mark.parametrize("role", ["user", "instructor"])
-def test_lists_and_details_are_scoped(client, order, role):
-    url = BASE + role + "/"
+def test_order_list_and_detail_require_admin(client, order):
+    url = BASE + "user/"
     assert client.get(url).status_code == 401
-    client.force_authenticate(getattr(order, role))
-    OrderFactory()
-    response = client.get(url)
-    assert response.data["count"] == 1
-    assert response.data["results"][0]["id"] == str(order.pk)
-    assert client.get(url + f"{order.pk}/").status_code == 200
-    client.force_authenticate(UserFactory())
-    assert client.get(url + f"{order.pk}/").status_code == 404
+    client.force_authenticate(order.user)
+    assert client.get(url).status_code == 403
+    assert client.get(url + f"{order.pk}/").status_code == 403
+
+
+def test_admin_uses_existing_user_order_endpoints_for_all_orders(client, order):
+    from django.contrib.auth.models import Group
+
+    admin = UserFactory()
+    admin.groups.add(Group.objects.get_or_create(name="admin")[0])
+    another = OrderFactory()
+    client.force_authenticate(admin)
+
+    response = client.get(BASE + "user/")
+    assert response.status_code == 200
+    assert response.data["count"] == 2
+    assert client.get(BASE + f"user/{order.pk}/").status_code == 200
+    assert client.get(BASE + f"user/{another.pk}/").status_code == 200
+
+
+def test_instructor_cannot_access_order_list_or_detail(client, order):
+    instructor = UserFactory()
+    instructor.become_instructor()
+    client.force_authenticate(instructor)
+    assert client.get(BASE + "user/").status_code == 403
+    assert client.get(BASE + f"user/{order.pk}/").status_code == 403
 
 
 def test_deleted_order_hidden(client, order):
-    client.force_authenticate(order.user)
+    from django.contrib.auth.models import Group
+
+    admin = UserFactory()
+    admin.groups.add(Group.objects.get_or_create(name="admin")[0])
+    client.force_authenticate(admin)
     order.soft_delete()
     assert client.get(BASE + f"user/{order.pk}/").status_code == 404
 

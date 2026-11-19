@@ -14,7 +14,6 @@ def test_scoping(order):
     OrderFactory(user=order.user, deleted_at=timezone.now())
     assert set(OrderRepository.get_order_queryset()) == {order, foreign}
     assert list(OrderRepository.get_user_orders(order.user)) == [order]
-    assert list(OrderRepository.get_instructor_orders(order.instructor)) == [order]
     assert OrderRepository.get_order_by_id(order.pk) == order
     assert OrderRepository.get_order_by_id(uuid4()) is None
 

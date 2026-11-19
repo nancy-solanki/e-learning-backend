@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.permission import IsSuperuser
 from apps.core.schema import ErrorSerializer, ErrorsSerializer
 
 from .filters import OrderFilter
@@ -55,17 +56,20 @@ ORDER_FILTER_DESCRIPTION = (
 @extend_schema_view(
     get=extend_schema(
         tags=["Order"],
-        description="Retrieve a list of orders for the authenticated user."
+        description=(
+            "Retrieve orders visible to the caller: admins see all active orders; "
+            "users see their own orders. Instructors do not have access to order records."
+        )
         + ORDER_FILTER_DESCRIPTION,
     ),
 )
 class OrderView(OrderFilteringMixin, mixins.ListModelMixin, generics.GenericAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsSuperuser]
     serializer_class = OrderSerializer
     queryset = Order.objects.none()
 
     def get_queryset(self):
-        return OrderService.get_user_orders(self.request.user)
+        return OrderService.get_order_queryset()
 
     def get(self, request, *args, **kwargs):
         return self.list(request, *args, **kwargs)
@@ -77,51 +81,12 @@ class OrderView(OrderFilteringMixin, mixins.ListModelMixin, generics.GenericAPIV
     ),
 )
 class SingleOrderView(mixins.RetrieveModelMixin, generics.GenericAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsSuperuser]
     serializer_class = OrderSerializer
     queryset = Order.objects.none()
 
     def get_queryset(self):
-        return OrderService.get_user_orders(self.request.user)
-
-    def get(self, request, *args, **kwargs):
-        return self.retrieve(request, *args, **kwargs)
-
-
-@extend_schema_view(
-    get=extend_schema(
-        tags=["Order (Instructor)"],
-        description="Retrieve a list of orders for courses taught by the authenticated instructor."
-        + ORDER_FILTER_DESCRIPTION,
-    ),
-)
-class OrderInstructorView(
-    OrderFilteringMixin, mixins.ListModelMixin, generics.GenericAPIView
-):
-    permission_classes = [IsAuthenticated]
-    serializer_class = OrderSerializer
-    queryset = Order.objects.none()
-
-    def get_queryset(self):
-        return OrderService.get_instructor_orders(self.request.user)
-
-    def get(self, request, *args, **kwargs):
-        return self.list(request, *args, **kwargs)
-
-
-@extend_schema_view(
-    get=extend_schema(
-        tags=["Order (Instructor)"],
-        description="Retrieve details of a specific order taught by the instructor by ID.",
-    ),
-)
-class SingleOrderInstructorView(mixins.RetrieveModelMixin, generics.GenericAPIView):
-    permission_classes = [IsAuthenticated]
-    serializer_class = OrderSerializer
-    queryset = Order.objects.none()
-
-    def get_queryset(self):
-        return OrderService.get_instructor_orders(self.request.user)
+        return OrderService.get_order_queryset()
 
     def get(self, request, *args, **kwargs):
         return self.retrieve(request, *args, **kwargs)

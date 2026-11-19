@@ -1,15 +1,17 @@
 from datetime import datetime, timezone
 
 import pytest
+from django.contrib.auth.models import Group
 
 from apps.coupon.tests.factories import CouponFactory
 from apps.order.tests.factories import OrderFactory
+from apps.users.tests.factories import UserFactory
 
 pytestmark = pytest.mark.django_db
 
 
-@pytest.fixture(params=["user", "instructor"])
-def orders(request, client):
+@pytest.fixture
+def orders(client):
     matched = OrderFactory(
         status="success",
         total_paid=150.5,
@@ -25,19 +27,22 @@ def orders(request, client):
         course__instructor__username="uniqueteacher",
         course__instructor__email="teacher@example.com",
     )
-    owner = getattr(matched, request.param)
+    owner = matched.user
     other = OrderFactory(
-        **{request.param: owner},
+        user=owner,
         status="pending",
         is_free=True,
         total_paid=0,
         created_at=datetime(2026, 1, 17, 12, tzinfo=timezone.utc),
     )
-    deleted = OrderFactory(**{request.param: owner}, status="success")
+    deleted = OrderFactory(user=owner, status="success")
     deleted.soft_delete()
     foreign = OrderFactory(status="success")
-    client.force_authenticate(owner)
-    return f"/api/v1/order/{request.param}/", matched, other, foreign
+    foreign.soft_delete()
+    admin = UserFactory()
+    admin.groups.add(Group.objects.get_or_create(name="admin")[0])
+    client.force_authenticate(admin)
+    return "/api/v1/order/user/", matched, other, foreign
 
 
 @pytest.mark.parametrize(
@@ -90,7 +95,7 @@ def test_search_people(client, orders, search):
     assert [row["id"] for row in response.data["results"]] == [str(matched.pk)]
 
 
-def test_search_id_and_scope(client, orders):
+def test_search_id_and_active_order_visibility(client, orders):
     url, matched, _, foreign = orders
     assert client.get(url, {"search": str(matched.pk)}).data["count"] == 1
     assert client.get(url, {"search": str(foreign.pk)}).data["count"] == 0

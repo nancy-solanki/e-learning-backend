@@ -31,10 +31,6 @@ class OrderService:
         return OrderRepository.get_user_orders(user)
 
     @staticmethod
-    def get_instructor_orders(user):
-        return OrderRepository.get_instructor_orders(user)
-
-    @staticmethod
     def create_razorpay_order(total_paid, course_id, user):
         """
         Creates a Razorpay order for payment.
