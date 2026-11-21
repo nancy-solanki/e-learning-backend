@@ -19,12 +19,22 @@ from apps.users.models import User
 from apps.wallet.models import Wallet, WalletEntry
 
 from .schema import (
+    AdminDashboardSerializer,
     DashboardChartsSerializer,
     DashboardStatsSerializer,
     InstructorDashboardSerializer,
 )
 
 
+@extend_schema(
+    tags=["Admin Dashboard"],
+    summary="Retrieve admin dashboard data",
+    description=(
+        "Returns platform-wide dashboard metrics, time-series trends, course "
+        "status counts, and recent orders. Requires administrator access."
+    ),
+    responses={200: AdminDashboardSerializer},
+)
 class AdminDashboardView(APIView):
     """Platform-wide dashboard data for authenticated administrators."""
 
