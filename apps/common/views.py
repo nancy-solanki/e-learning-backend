@@ -1,7 +1,9 @@
-from decimal import Decimal
+from datetime import date, datetime, time, timedelta
+from datetime import timezone as datetime_timezone
+from decimal import ROUND_HALF_UP, Decimal
 
 from django.db.models import Avg, Count, Q, Sum
-from django.db.models.functions import TruncDate
+from django.db.models.functions import TruncDate, TruncMonth, TruncYear
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework.permissions import IsAuthenticated
@@ -21,6 +23,211 @@ from .schema import (
     DashboardStatsSerializer,
     InstructorDashboardSerializer,
 )
+
+
+class AdminDashboardView(APIView):
+    """Platform-wide dashboard data for authenticated administrators."""
+
+    permission_classes = (IsSuperuser,)
+
+    def get(self, request):
+        period = request.query_params.get("period", "daily")
+        if period not in {"daily", "monthly", "yearly"}:
+            return Response({"period": ["Use daily, monthly, or yearly."]}, status=400)
+
+        # A single UTC instant controls both the headline windows and chart buckets.
+        as_of = timezone.now().astimezone(datetime_timezone.utc)
+        since_30d = as_of - timedelta(days=30)
+        users = User.objects.filter(deleted_at__isnull=True)
+        courses = Course.objects.filter(deleted_at__isnull=True)
+        enrollments = Enroll.objects.filter(deleted_at__isnull=True)
+        orders = Order.objects.filter(deleted_at__isnull=True)
+        successful_paid_orders = orders.filter(
+            status=Order.STATUS.SUCCESS, is_free=False
+        )
+
+        def buckets_for_period():
+            current = as_of.date()
+            if period == "daily":
+                first = current - timedelta(days=29)
+                return [first + timedelta(days=i) for i in range(30)], TruncDate
+            if period == "monthly":
+                current_month = current.replace(day=1)
+                values = []
+                for offset in range(11, -1, -1):
+                    index = current_month.year * 12 + current_month.month - 1 - offset
+                    year, month = divmod(index, 12)
+                    values.append(date(year, month + 1, 1))
+                return values, TruncMonth
+            return [date(current.year - i, 1, 1) for i in range(4, -1, -1)], TruncYear
+
+        bucket_dates, truncator = buckets_for_period()
+        start_date = bucket_dates[0]
+        if period == "daily":
+            start = datetime.combine(start_date, time.min, tzinfo=datetime_timezone.utc)
+            end = as_of
+            date_format = "%Y-%m-%d"
+        elif period == "monthly":
+            start = datetime.combine(start_date, time.min, tzinfo=datetime_timezone.utc)
+            next_month = bucket_dates[-1]
+            end = datetime(
+                next_month.year + (next_month.month == 12),
+                1 if next_month.month == 12 else next_month.month + 1,
+                1,
+                tzinfo=datetime_timezone.utc,
+            )
+            date_format = "%Y-%m"
+        else:
+            start = datetime.combine(start_date, time.min, tzinfo=datetime_timezone.utc)
+            end = datetime(
+                bucket_dates[-1].year + 1, 1, 1, tzinfo=datetime_timezone.utc
+            )
+            date_format = "%Y"
+
+        def key_for_bucket(value):
+            if isinstance(value, datetime):
+                value = value.date()
+            if period == "daily":
+                return value
+            if period == "monthly":
+                return date(value.year, value.month, 1)
+            return date(value.year, 1, 1)
+
+        def truncated(field_name):
+            if period == "daily":
+                return TruncDate(field_name, tzinfo=datetime_timezone.utc)
+            return truncator(field_name, tzinfo=datetime_timezone.utc)
+
+        trend_orders = successful_paid_orders.filter(created_at__gte=start)
+        trend_enrollments = enrollments.filter(created_at__gte=start)
+        if period == "daily":
+            trend_orders = trend_orders.filter(created_at__lte=as_of)
+            trend_enrollments = trend_enrollments.filter(created_at__lte=as_of)
+        else:
+            trend_orders = trend_orders.filter(created_at__lt=end)
+            trend_enrollments = trend_enrollments.filter(created_at__lt=end)
+
+        enrollment_counts = {
+            key_for_bucket(row["bucket"]): row["count"]
+            for row in trend_enrollments.annotate(bucket=truncated("created_at"))
+            .values("bucket")
+            .annotate(count=Count("id"))
+        }
+        if period == "daily":
+            revenue_totals = {}
+            for order in trend_orders.values("created_at", "total_paid"):
+                bucket = timezone.localtime(
+                    order["created_at"], datetime_timezone.utc
+                ).date()
+                revenue_totals[bucket] = revenue_totals.get(
+                    bucket, Decimal("0.00")
+                ) + Decimal(str(order["total_paid"]))
+        else:
+            revenue_totals = {
+                key_for_bucket(row["bucket"]): row["total"]
+                for row in trend_orders.annotate(
+                    bucket=truncator("created_at", tzinfo=datetime_timezone.utc)
+                )
+                .values("bucket")
+                .annotate(total=Sum("total_paid"))
+            }
+
+        def money(value):
+            return str(
+                Decimal(str(value or 0)).quantize(
+                    Decimal("0.01"), rounding=ROUND_HALF_UP
+                )
+            )
+
+        revenue_total = successful_paid_orders.aggregate(total=Sum("total_paid"))[
+            "total"
+        ]
+        status_counts = {
+            row["status"]: row["count"]
+            for row in courses.values("status").annotate(count=Count("id"))
+        }
+        currency = (
+            Wallet.objects.filter(is_site_wallet=True, deleted_at__isnull=True)
+            .values_list("currency", flat=True)
+            .first()
+            or "INR"
+        )
+        recent_orders = []
+        for order in orders.select_related("user", "course").order_by(
+            "-created_at", "-id"
+        )[:5]:
+            recent_orders.append(
+                {
+                    "id": str(order.id),
+                    "user_name": f"{order.user.first_name} {order.user.last_name}".strip(),
+                    "course_title": order.course.title if order.course_id else None,
+                    "status": order.status,
+                    "is_free": order.is_free,
+                    "total_paid": money(order.total_paid),
+                    "created_at": order.created_at,
+                }
+            )
+
+        return Response(
+            {
+                "metrics": {
+                    # Includes all account types, including staff/admin accounts.
+                    "total_users": users.count(),
+                    "active_learners": users.filter(
+                        is_active=True,
+                        status=User.Status.ACTIVE,
+                        groups__name="student",
+                    )
+                    .distinct()
+                    .count(),
+                    "instructors": users.filter(
+                        is_active=True,
+                        status=User.Status.ACTIVE,
+                        groups__name="instructor",
+                    )
+                    .distinct()
+                    .count(),
+                    "total_courses": courses.count(),
+                    "published_courses": courses.filter(
+                        status=Course.Status.PUBLISHED
+                    ).count(),
+                    "total_enrollments": enrollments.count(),
+                    "enrollments_30d": enrollments.filter(
+                        created_at__gte=since_30d, created_at__lte=as_of
+                    ).count(),
+                    "gross_revenue": money(revenue_total),
+                    "orders_30d": orders.filter(
+                        created_at__gte=since_30d, created_at__lte=as_of
+                    ).count(),
+                },
+                "currency": currency,
+                "as_of": as_of.isoformat().replace("+00:00", "Z"),
+                "enrollment_trend": [
+                    {
+                        "date": bucket.strftime(date_format),
+                        "count": enrollment_counts.get(key_for_bucket(bucket), 0),
+                    }
+                    for bucket in bucket_dates
+                ],
+                "revenue_trend": [
+                    {
+                        "date": bucket.strftime(date_format),
+                        "amount": money(revenue_totals.get(key_for_bucket(bucket))),
+                    }
+                    for bucket in bucket_dates
+                ],
+                "course_status_counts": [
+                    {"status": status, "count": status_counts.get(status, 0)}
+                    for status in Course.Status.values
+                ]
+                + [
+                    {"status": status, "count": count}
+                    for status, count in status_counts.items()
+                    if status not in Course.Status.values
+                ],
+                "recent_orders": recent_orders,
+            }
+        )
 
 
 @extend_schema(

@@ -1,4 +1,5 @@
 from datetime import timedelta
+from datetime import timezone as datetime_timezone
 
 import pytest
 from django.contrib.auth.models import Group
@@ -14,7 +15,7 @@ pytestmark = [pytest.mark.django_db, pytest.mark.usefixtures("dashboard_urls")]
 
 
 @pytest.mark.parametrize(
-    "endpoint", ["admin-dashboard-stats", "admin-dashboard-charts"]
+    "endpoint", ["admin-dashboard", "admin-dashboard-stats", "admin-dashboard-charts"]
 )
 @pytest.mark.parametrize(
     "role, expected",
@@ -143,3 +144,52 @@ def test_empty_charts(client, admin):
         "orders": [],
         "users": [],
     }
+
+
+def test_admin_dashboard_returns_zero_filled_utc_buckets(client, admin, mocker):
+    as_of = timezone.datetime(2026, 11, 21, 12, 30, tzinfo=datetime_timezone.utc)
+    mocker.patch("apps.common.views.timezone.now", return_value=as_of)
+    response = client.get(reverse("admin-dashboard"), {"period": "daily"})
+
+    assert response.status_code == 200
+    assert response.data["as_of"] == "2026-11-21T12:30:00Z"
+    assert response.data["metrics"] == {
+        "total_users": 1,
+        "active_learners": 0,
+        "instructors": 0,
+        "total_courses": 0,
+        "published_courses": 0,
+        "total_enrollments": 0,
+        "enrollments_30d": 0,
+        "gross_revenue": "0.00",
+        "orders_30d": 0,
+    }
+    assert len(response.data["enrollment_trend"]) == 30
+    assert response.data["enrollment_trend"][0] == {"date": "2026-10-23", "count": 0}
+    assert response.data["enrollment_trend"][-1] == {"date": "2026-11-21", "count": 0}
+    assert len(response.data["revenue_trend"]) == 30
+    assert response.data["revenue_trend"][0]["amount"] == "0.00"
+    assert response.data["recent_orders"] == []
+
+
+@pytest.mark.parametrize(
+    "period, expected_first, expected_count",
+    [("monthly", "2025-12", 12), ("yearly", "2022", 5)],
+)
+def test_admin_dashboard_period_buckets(
+    client, admin, mocker, period, expected_first, expected_count
+):
+    mocker.patch(
+        "apps.common.views.timezone.now",
+        return_value=timezone.datetime(2026, 11, 21, 12, tzinfo=datetime_timezone.utc),
+    )
+    response = client.get(reverse("admin-dashboard"), {"period": period})
+    assert response.status_code == 200
+    assert len(response.data["enrollment_trend"]) == expected_count
+    assert response.data["enrollment_trend"][0]["date"] == expected_first
+
+
+def test_admin_dashboard_rejects_unknown_period(client, admin):
+    assert (
+        client.get(reverse("admin-dashboard"), {"period": "weekly"}).status_code == 400
+    )
