@@ -225,6 +225,8 @@ AUTH_USER_MODEL = "users.User"
 # Django REST Framework
 # ---------------------------------------------------------------------------
 
+PUBLIC_API_CACHE_SECONDS = int(os.getenv("PUBLIC_API_CACHE_SECONDS", "60"))
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "apps.auth.cookies.CookieJWTAuthentication",

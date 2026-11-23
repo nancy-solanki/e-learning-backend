@@ -6,6 +6,7 @@ from rest_framework.generics import ListAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
+from apps.core.cache import PublicResponseCacheMixin
 from apps.core.moderation import AdminStatusOnlyMixin, InstructorSubmissionMixin
 from apps.core.permission import IsInstructorOrAdmin
 from apps.core.schema import MessageSerializer
@@ -38,7 +39,9 @@ class LectureFilteringMixin:
         tags=["Lecture"], description="Retrieve a specific lecture by its ID."
     ),
 )
-class LectureViewSet(LectureFilteringMixin, viewsets.ModelViewSet):
+class LectureViewSet(
+    PublicResponseCacheMixin, LectureFilteringMixin, viewsets.ModelViewSet
+):
     """
     ViewSet for public-facing lecture listing and detail.
     """
@@ -151,7 +154,7 @@ class AllLectureViewSet(
         description="Retrieve all lectures belonging to a specific section slug.",
     ),
 )
-class LectureBySectionView(LectureFilteringMixin, ListAPIView):
+class LectureBySectionView(PublicResponseCacheMixin, LectureFilteringMixin, ListAPIView):
     """
     API View to retrieve lectures associated with a specific section.
     """

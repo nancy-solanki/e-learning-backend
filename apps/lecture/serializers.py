@@ -47,13 +47,13 @@ class LectureSerializer(InstructorStatusReadOnlyMixin, serializers.ModelSerializ
             "deleted_at",
         )
 
-        def validate_source(self, value):
-            if value.size > settings.MAX_LECTURE_VIDEO_SIZE:
-                max_size_mb = settings.MAX_LECTURE_VIDEO_SIZE / (1024 * 1024)
-                raise serializers.ValidationError(
-                    f"Video exceeds the maximum upload size of {max_size_mb:g} MB."
-                )
-            return value
+    def validate_source(self, value):
+        if value.size > settings.MAX_LECTURE_VIDEO_SIZE:
+            max_size_mb = settings.MAX_LECTURE_VIDEO_SIZE / (1024 * 1024)
+            raise serializers.ValidationError(
+                f"Video exceeds the maximum upload size of {max_size_mb:g} MB."
+            )
+        return value
 
     def validate(self, attrs):
         request = self.context.get("request")

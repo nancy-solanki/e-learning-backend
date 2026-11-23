@@ -8,6 +8,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from apps.category.models import Category
+from apps.core.cache import PublicResponseCacheMixin
 from apps.core.moderation import AdminStatusOnlyMixin, InstructorSubmissionMixin
 from apps.core.permission import IsInstructorOrAdmin, IsSuperuserOrReadOnly
 from apps.core.schema import MessageSerializer
@@ -92,7 +93,9 @@ class CourseFilteringMixin:
         tags=["Course"], description="Retrieve a specific course by ID."
     ),
 )
-class CourseViewSet(CourseFilteringMixin, viewsets.ModelViewSet):
+class CourseViewSet(
+    PublicResponseCacheMixin, CourseFilteringMixin, viewsets.ModelViewSet
+):
     permission_classes = (IsSuperuserOrReadOnly,)
     serializer_class = FilteredCourseSerializer
     queryset = Course.objects.none()
@@ -114,7 +117,7 @@ class CourseViewSet(CourseFilteringMixin, viewsets.ModelViewSet):
         ),
     ),
 )
-class CourseByCategoryView(CourseFilteringMixin, ListAPIView):
+class CourseByCategoryView(PublicResponseCacheMixin, CourseFilteringMixin, ListAPIView):
     serializer_class = FilteredCourseSerializer
     queryset = Course.objects.none()
     permission_classes = [AllowAny]
