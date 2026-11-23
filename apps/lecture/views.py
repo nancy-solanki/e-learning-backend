@@ -154,7 +154,9 @@ class AllLectureViewSet(
         description="Retrieve all lectures belonging to a specific section slug.",
     ),
 )
-class LectureBySectionView(PublicResponseCacheMixin, LectureFilteringMixin, ListAPIView):
+class LectureBySectionView(
+    PublicResponseCacheMixin, LectureFilteringMixin, ListAPIView
+):
     """
     API View to retrieve lectures associated with a specific section.
     """
