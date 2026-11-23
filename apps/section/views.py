@@ -7,7 +7,6 @@ from rest_framework.generics import ListAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-from apps.core.cache import PublicResponseCacheMixin
 from apps.core.moderation import AdminStatusOnlyMixin, InstructorSubmissionMixin
 from apps.core.permission import IsInstructorOrAdmin
 from apps.core.schema import MessageSerializer
@@ -40,9 +39,7 @@ class SectionFilteringMixin:
         tags=["Section"], description="Retrieve a specific published section by ID."
     ),
 )
-class SectionViewSet(
-    PublicResponseCacheMixin, SectionFilteringMixin, viewsets.ModelViewSet
-):
+class SectionViewSet(SectionFilteringMixin, viewsets.ModelViewSet):
     permission_classes = [AllowAny]
     queryset = SectionService.get_public_queryset()
     serializer_class = FilteredSectionSerializer
@@ -133,7 +130,7 @@ class AllSectionViewSet(
     tags=["Section"],
     description="Retrieve all sections belonging to a specific course slug.",
 )
-class SectionByCourseView(PublicResponseCacheMixin, SectionFilteringMixin, ListAPIView):
+class SectionByCourseView(SectionFilteringMixin, ListAPIView):
     serializer_class = SectionSerializer
     permission_classes = [AllowAny]
 

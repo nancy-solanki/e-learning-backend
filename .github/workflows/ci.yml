@@ -43,6 +43,9 @@ jobs:
       - name: Set up Python
         run: uv python install 3.12
 
+      - name: Create virtual environment
+        run: uv venv --python 3.12
+
       - name: Install dependencies
         run: uv sync --frozen --dev
 
