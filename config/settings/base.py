@@ -245,6 +245,27 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "apps.core.schema.ApplicationSchema",
     "DEFAULT_PAGINATION_CLASS": ("rest_framework.pagination.PageNumberPagination"),
     "PAGE_SIZE": 20,
+    "DEFAULT_THROTTLE_CLASSES": (
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+        "rest_framework.throttling.ScopedRateThrottle",
+    ),
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "1000/hour",
+        "user": "5000/hour",
+        "auth_login": "5/minute",
+        "auth_social_login": "10/minute",
+        "auth_refresh": "30/minute",
+        "auth_registration": "5/hour",
+        "auth_account_activation": "10/hour",
+        "auth_password_change": "5/hour",
+        "auth_password_reset_email": "3/hour",
+        "auth_password_reset": "10/hour",
+        "payment_create": "10/minute",
+        "payment_verify": "20/minute",
+        "coupon_lookup": "30/minute",
+        "lecture_upload": "20/hour",
+    },
 }
 
 
@@ -402,6 +423,9 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+MAX_LECTURE_VIDEO_SIZE = int(
+    os.getenv("MAX_LECTURE_VIDEO_SIZE", str(500 * 1024 * 1024))
+)
 
 CLOUDINARY_STORAGE = {
     "CLOUD_NAME": os.getenv("CLOUDINARY_CLOUD_NAME", ""),

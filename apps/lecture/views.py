@@ -115,6 +115,15 @@ class AllLectureViewSet(
 
     queryset = Lecture.objects.none()
 
+    def get_throttles(self):
+        self.throttle_scope = (
+            "lecture_upload"
+            if getattr(self, "action", None)
+            in {"create", "update", "partial_update"}
+            else None
+        )
+        return super().get_throttles()
+
     def get_queryset(self):
         if self.request.user.is_admin:
             return LectureRepository.get_admin_lectures()

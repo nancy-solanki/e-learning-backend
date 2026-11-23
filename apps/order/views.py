@@ -93,6 +93,7 @@ class SingleOrderView(mixins.RetrieveModelMixin, generics.GenericAPIView):
 
 
 class MakePayment(APIView):
+    throttle_scope = "payment_create"
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
@@ -129,6 +130,7 @@ class MakePayment(APIView):
 
 
 class SuccessPayment(APIView):
+    throttle_scope = "payment_verify"
     permission_classes = [IsAuthenticated]
 
     @extend_schema(

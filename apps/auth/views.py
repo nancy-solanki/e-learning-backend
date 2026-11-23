@@ -47,6 +47,8 @@ class CsrfTokenView(APIView):
 
 @extend_schema_view(post=extend_schema(responses={200: MessageSerializer}))
 class CookieSignInView(CsrfProtectedMixin, TokenObtainPairView):
+    throttle_scope = "auth_login"
+
     def post(self, request, *args, **kwargs):
         response = super().post(request, *args, **kwargs)
         token = RefreshToken(response.data["refresh"])
@@ -62,6 +64,7 @@ class CookieSignInView(CsrfProtectedMixin, TokenObtainPairView):
     post=extend_schema(request=None, responses={200: MessageSerializer})
 )
 class CookieRefreshView(CsrfProtectedMixin, APIView):
+    throttle_scope = "auth_refresh"
     authentication_classes = []
     permission_classes = [AllowAny]
 
@@ -93,6 +96,7 @@ class CookieRefreshView(CsrfProtectedMixin, APIView):
 
 
 class CookieSocialLoginView(CsrfProtectedMixin, SocialLoginView):
+    throttle_scope = "auth_social_login"
     authentication_classes = []
 
     def get_response(self):
@@ -153,6 +157,7 @@ class AppleLoginView(CookieSocialLoginView):
     )
 )
 class UserRegistrationView(APIView):
+    throttle_scope = "auth_registration"
     permission_classes = [AllowAny]
 
     def post(self, request):
@@ -176,6 +181,7 @@ class UserRegistrationView(APIView):
     )
 )
 class UserActivateAccountView(APIView):
+    throttle_scope = "auth_account_activation"
     permission_classes = [AllowAny]
 
     def post(self, request, uid, token):
@@ -222,6 +228,7 @@ class UserLogoutView(CsrfProtectedMixin, APIView):
     )
 )
 class UserChangePasswordView(APIView):
+    throttle_scope = "auth_password_change"
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -243,6 +250,7 @@ class UserChangePasswordView(APIView):
     )
 )
 class SendPasswordResetEmailView(APIView):
+    throttle_scope = "auth_password_reset_email"
     permission_classes = [AllowAny]
 
     def post(self, request):
@@ -265,6 +273,7 @@ class SendPasswordResetEmailView(APIView):
     )
 )
 class UserPasswordResetView(APIView):
+    throttle_scope = "auth_password_reset"
     permission_classes = [AllowAny]
 
     def post(self, request, uid, token):

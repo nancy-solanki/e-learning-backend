@@ -3,6 +3,7 @@ from django.contrib.auth.models import Group
 
 from apps.lecture.models import Lecture
 from apps.lecture.tests.factories import LectureFactory
+from apps.lecture.views import AllLectureViewSet
 from apps.users.tests.factories import UserFactory
 
 pytestmark = pytest.mark.django_db
@@ -40,6 +41,24 @@ def test_section_lookup(client, lecture):
 def test_management_requires_auth(client, lecture, method):
     target = MANAGE if method in ("get", "post") else MANAGE + f"{lecture.pk}/"
     assert getattr(client, method)(target).status_code == 401
+
+
+@pytest.mark.parametrize(
+    "action,expected_scope",
+    [
+        ("create", "lecture_upload"),
+        ("update", "lecture_upload"),
+        ("partial_update", "lecture_upload"),
+        ("list", None),
+    ],
+)
+def test_upload_throttle_scope_applies_only_to_media_writes(action, expected_scope):
+    view = AllLectureViewSet()
+    view.action = action
+
+    view.get_throttles()
+
+    assert view.throttle_scope == expected_scope
 
 
 def test_create_returns_saved_object_update_and_delete(client, lecture, instructor):

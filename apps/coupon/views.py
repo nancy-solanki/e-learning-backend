@@ -122,6 +122,7 @@ class GetCoupon(APIView):
     API View to retrieve and validate a coupon by its code.
     """
 
+    throttle_scope = "coupon_lookup"
     permission_classes = [IsAuthenticated]
 
     def get(self, request, code, format=None):
