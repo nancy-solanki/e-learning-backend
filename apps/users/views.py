@@ -1,4 +1,6 @@
+from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import filters, status
@@ -11,6 +13,7 @@ from rest_framework.viewsets import ModelViewSet
 
 from apps.core.permission import IsSuperuser
 from apps.core.schema import ErrorSerializer, MessageSerializer
+from apps.users.cache import user_profile_cache_key
 from apps.users.filters import UserFilter
 
 from .repository import UserRepository
@@ -40,18 +43,28 @@ User = get_user_model()
 class UserProfileView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = UserProfileSerializer
+    throttle_scope = "user_profile"
 
     def get(self, request):
-        return Response(
-            self.serializer_class(request.user).data, status=status.HTTP_200_OK
-        )
+        cache_key = user_profile_cache_key(request.user.pk)
+        profile = cache.get(cache_key)
+        if profile is None:
+            profile = self.serializer_class(request.user).data
+            cache.set(cache_key, profile, settings.USER_PROFILE_CACHE_SECONDS)
+        return Response(profile, status=status.HTTP_200_OK)
 
     def put(self, request):
         user = request.user
         serializer = self.serializer_class(user, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response({**serializer.data}, status=status.HTTP_200_OK)
+        profile = serializer.data
+        cache.set(
+            user_profile_cache_key(user.pk),
+            profile,
+            settings.USER_PROFILE_CACHE_SECONDS,
+        )
+        return Response(profile, status=status.HTTP_200_OK)
 
 
 @extend_schema_view(

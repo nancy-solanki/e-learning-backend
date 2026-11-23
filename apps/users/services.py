@@ -1,4 +1,7 @@
+from django.core.cache import cache
 from django.utils import timezone
+
+from .cache import user_profile_cache_key
 
 
 class UserService:
@@ -12,6 +15,7 @@ class UserService:
         Grants a user the instructor role.
         """
         user.become_instructor()
+        cache.delete(user_profile_cache_key(user.pk))
         return "User updated successfully"
 
     @staticmethod
@@ -20,6 +24,7 @@ class UserService:
         Toggles admin privileges for a user.
         """
         action_taken = user.toggle_admin_privileges()
+        cache.delete(user_profile_cache_key(user.pk))
         group_name = "admin"
         return f"User {action_taken} {group_name} group successfully"
 
@@ -29,6 +34,7 @@ class UserService:
         Activates or suspends a user's account.
         """
         action = user.toggle_status()
+        cache.delete(user_profile_cache_key(user.pk))
         return f"User {action} successfully"
 
     @staticmethod
@@ -38,3 +44,4 @@ class UserService:
         user.is_active = False
         user.status = user.Status.INACTIVE
         user.save(update_fields=["deleted_at", "is_active", "status", "updated_at"])
+        cache.delete(user_profile_cache_key(user.pk))

@@ -1,7 +1,9 @@
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from rest_framework import serializers
 
 from apps.common.service import FileService
+from apps.users.cache import user_profile_cache_key
 
 User = get_user_model()
 
@@ -29,6 +31,11 @@ class BaseUserSerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
         data["gender"] = instance.get_gender_display()
         return data
+
+    def update(self, instance, validated_data):
+        instance = super().update(instance, validated_data)
+        cache.delete(user_profile_cache_key(instance.pk))
+        return instance
 
 
 class UserProfileSerializer(BaseUserSerializer):

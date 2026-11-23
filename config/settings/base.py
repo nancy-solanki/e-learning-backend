@@ -226,6 +226,7 @@ AUTH_USER_MODEL = "users.User"
 # ---------------------------------------------------------------------------
 
 PUBLIC_API_CACHE_SECONDS = int(os.getenv("PUBLIC_API_CACHE_SECONDS", "60"))
+USER_PROFILE_CACHE_SECONDS = int(os.getenv("USER_PROFILE_CACHE_SECONDS", "60"))
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
@@ -267,6 +268,7 @@ REST_FRAMEWORK = {
         "payment_verify": "20/minute",
         "coupon_lookup": "30/minute",
         "lecture_upload": "20/hour",
+        "user_profile": "120/minute",
     },
 }
 

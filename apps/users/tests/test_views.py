@@ -1,7 +1,10 @@
 import pytest
 from django.contrib.auth.models import Group
+from django.core.cache import cache
 from rest_framework import status
+from rest_framework.test import APIClient
 
+from apps.users.cache import user_profile_cache_key
 from apps.users.tests.factories import UserFactory
 
 # ─────────────────────────────────────────────
@@ -51,6 +54,24 @@ class TestUserProfileView:
         response = auth_client.put(self.url, {"phone_number": "9876543210"})
         assert response.status_code == status.HTTP_200_OK
         assert response.data["phone_number"] == "9876543210"
+
+    def test_profile_cache_is_user_specific_and_refreshed(self, auth_client, user):
+        cache.clear()
+        user_cache_key = user_profile_cache_key(user.pk)
+        own_profile = auth_client.get(self.url)
+        assert cache.get(user_cache_key) == own_profile.data
+
+        other_user = UserFactory()
+        other_client = APIClient()
+        other_client.force_authenticate(other_user)
+        other_profile = other_client.get(self.url)
+        assert other_profile.data["email"] == other_user.email
+        assert cache.get(user_profile_cache_key(other_user.pk)) == other_profile.data
+        assert cache.get(user_cache_key) == own_profile.data
+
+        updated_profile = auth_client.put(self.url, {"full_name": "Updated"})
+        assert updated_profile.data["full_name"] == "Updated"
+        assert cache.get(user_cache_key) == updated_profile.data
 
 
 # ─────────────────────────────────────────────
