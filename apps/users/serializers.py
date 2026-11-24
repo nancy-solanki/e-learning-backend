@@ -4,8 +4,8 @@ from rest_framework import serializers
 
 from apps.common.service import FileService
 from apps.core.email_notifications import queue_notification_email
-from apps.users.notifications import create_notification
 from apps.users.cache import user_profile_cache_key
+from apps.users.notifications import create_notification
 
 User = get_user_model()
 

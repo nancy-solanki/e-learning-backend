@@ -9,6 +9,8 @@ https://docs.djangoproject.com/en/6.1/howto/deployment/asgi/
 
 import os
 
+from channels.routing import ProtocolTypeRouter, URLRouter
+from channels.security.websocket import AllowedHostsOriginValidator
 from django.core.asgi import get_asgi_application
 
 os.environ.setdefault(
@@ -18,17 +20,19 @@ os.environ.setdefault(
 
 django_asgi_app = get_asgi_application()
 
-from channels.routing import ProtocolTypeRouter, URLRouter
-from channels.security.websocket import AllowedHostsOriginValidator
 
-from apps.users.routing import websocket_urlpatterns
-from apps.users.websocket_auth import CookieJWTAuthMiddlewareStack
+def get_application():
+    from apps.users.routing import websocket_urlpatterns
+    from apps.users.websocket_auth import CookieJWTAuthMiddlewareStack
 
-application = ProtocolTypeRouter(
-    {
-        "http": django_asgi_app,
-        "websocket": AllowedHostsOriginValidator(
-            CookieJWTAuthMiddlewareStack(URLRouter(websocket_urlpatterns))
-        ),
-    }
-)
+    return ProtocolTypeRouter(
+        {
+            "http": django_asgi_app,
+            "websocket": AllowedHostsOriginValidator(
+                CookieJWTAuthMiddlewareStack(URLRouter(websocket_urlpatterns))
+            ),
+        }
+    )
+
+
+application = get_application()
