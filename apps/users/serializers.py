@@ -4,6 +4,7 @@ from rest_framework import serializers
 
 from apps.common.service import FileService
 from apps.core.email_notifications import queue_notification_email
+from apps.users.notifications import create_notification
 from apps.users.cache import user_profile_cache_key
 
 User = get_user_model()
@@ -38,6 +39,14 @@ class BaseUserSerializer(serializers.ModelSerializer):
         instance = super().update(instance, validated_data)
         cache.delete(user_profile_cache_key(instance.pk))
         if previous_email != instance.email:
+            create_notification(
+                instance,
+                title="Email address changed",
+                message=(
+                    "The email address for your Learnify account was changed. "
+                    "Contact support immediately if you did not make this change."
+                ),
+            )
             for email in {previous_email, instance.email}:
                 queue_notification_email(
                     instance,
@@ -49,6 +58,7 @@ class BaseUserSerializer(serializers.ModelSerializer):
                     ),
                     preference_required=False,
                     recipient_email=email,
+                    notify_in_app=False,
                 )
         return instance
 

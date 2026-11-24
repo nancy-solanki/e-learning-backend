@@ -87,6 +87,7 @@ THIRD_PARTY_APPS = [
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
     "django_redis",
+    "channels",
 ]
 
 
@@ -151,6 +152,7 @@ CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS", DEFAULT_DEV_ORIGINS)
 ROOT_URLCONF = "config.urls"
 
 WSGI_APPLICATION = "config.wsgi.application"
+ASGI_APPLICATION = "config.asgi.application"
 
 
 # ---------------------------------------------------------------------------
@@ -510,6 +512,15 @@ CELERY_BROKER_URL = os.getenv(
     "CELERY_BROKER_URL",
     os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0"),
 )
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [os.getenv("REDIS_URL", "redis://127.0.0.1:6379/2")],
+        },
+    },
+}
 
 
 # ---------------------------------------------------------------------------

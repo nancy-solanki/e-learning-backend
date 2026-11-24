@@ -24,3 +24,13 @@ uv run pre-commit run --all-files
 ## CI
 
 GitHub Actions uses Python 3.12, creates the same `.venv`, and installs dependencies with `uv sync --frozen --dev`. Keep `uv.lock` committed and regenerate it after dependency changes with `uv lock`.
+
+## In-app notifications
+
+Notification records are available at `GET /api/v1/users/me/notifications/`.
+Mark one as read with `POST /api/v1/users/me/notifications/<id>/read/`.
+Authenticated clients can receive new notifications over
+`ws(s)://<host>/ws/notifications/`; the websocket uses the `access_token`
+cookie and sends messages shaped as `{"type":"notification","data":{...}}`.
+Run the ASGI application (`config.asgi:application`) and configure Redis for
+the Channels layer in deployed environments.

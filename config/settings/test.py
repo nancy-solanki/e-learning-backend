@@ -67,6 +67,10 @@ SESSION_ENGINE = "django.contrib.sessions.backends.db"
 CELERY_TASK_ALWAYS_EAGER = True
 CELERY_TASK_EAGER_PROPAGATES = True
 
+CHANNEL_LAYERS = {
+    "default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}
+}
+
 
 # ---------------------------------------------------------------------------
 # Security

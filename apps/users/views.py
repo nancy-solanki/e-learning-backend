@@ -1,9 +1,10 @@
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
+from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
-from rest_framework import filters, serializers, status
+from rest_framework import filters, generics, serializers, status
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
@@ -15,6 +16,8 @@ from apps.core.permission import IsSuperuser
 from apps.core.schema import ErrorSerializer, MessageSerializer
 from apps.users.cache import user_profile_cache_key
 from apps.users.filters import UserFilter
+from apps.users.models import UserNotification
+from apps.users.notification_serializers import NotificationSerializer
 
 from .repository import UserRepository
 from .schema import UserProfileResponseSerializer, UserResponseSerializer
@@ -22,6 +25,32 @@ from .serializers import UserProfileSerializer, UserSerializer
 from .services import UserService
 
 User = get_user_model()
+
+
+class NotificationListView(generics.ListAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = NotificationSerializer
+
+    def get_queryset(self):
+        return UserNotification.objects.filter(user=self.request.user).select_related(
+            "notification"
+        )
+
+
+class NotificationReadView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        notification = UserNotification.objects.select_related("notification").filter(
+            pk=pk, user=request.user
+        ).first()
+        if notification is None:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        if not notification.is_read:
+            notification.is_read = True
+            notification.read_at = timezone.now()
+            notification.save(update_fields=("is_read", "read_at", "updated_at"))
+        return Response(NotificationSerializer(notification).data)
 
 
 class AccountStatusChangeSerializer(serializers.Serializer):

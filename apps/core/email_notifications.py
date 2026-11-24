@@ -17,8 +17,15 @@ def queue_notification_email(
     preference_required: bool = True,
     preference_field: str = "email_notifications",
     recipient_email: str | None = None,
+    notify_in_app: bool = True,
+    actor=None,
 ) -> bool:
-    """Queue a notification after commit, respecting the recipient's preference."""
+    """Persist and broadcast an in-app notification, then queue its email."""
+    if notify_in_app:
+        from apps.users.notifications import create_notification
+
+        create_notification(recipient, title=title, message=message, actor=actor)
+
     email = recipient_email or getattr(recipient, "email", "")
     if not isinstance(email, str) or not email.strip():
         return False

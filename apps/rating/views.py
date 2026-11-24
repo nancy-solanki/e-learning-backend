@@ -96,6 +96,7 @@ class RatingViewSet(RatingFilteringMixin, viewsets.ModelViewSet):
                 f"{rating.user.get_full_name() or rating.user.email} left a "
                 f'{rating.rating}-star review for "{rating.course.title}".'
             ),
+            actor=rating.user,
         )
 
     def perform_update(self, serializer):
@@ -114,6 +115,7 @@ class RatingViewSet(RatingFilteringMixin, viewsets.ModelViewSet):
                 message=(
                     f'Your instructor replied to your review for "{rating.course.title}".'
                 ),
+                actor=self.request.user,
             )
 
     def perform_destroy(self, instance):

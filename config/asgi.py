@@ -16,4 +16,19 @@ os.environ.setdefault(
     "config.settings.production",
 )
 
-application = get_asgi_application()
+django_asgi_app = get_asgi_application()
+
+from channels.routing import ProtocolTypeRouter, URLRouter
+from channels.security.websocket import AllowedHostsOriginValidator
+
+from apps.users.routing import websocket_urlpatterns
+from apps.users.websocket_auth import CookieJWTAuthMiddlewareStack
+
+application = ProtocolTypeRouter(
+    {
+        "http": django_asgi_app,
+        "websocket": AllowedHostsOriginValidator(
+            CookieJWTAuthMiddlewareStack(URLRouter(websocket_urlpatterns))
+        ),
+    }
+)

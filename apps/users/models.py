@@ -119,3 +119,54 @@ class User(AbstractUser, BaseModel):
         verbose_name = "user"
         verbose_name_plural = "users"
         ordering = ["-created_at"]
+
+
+class Notification(BaseModel):
+    """Shared notification content; global entries are shared with all users."""
+
+    title = models.CharField(max_length=255)
+    message = models.TextField()
+    actor = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="authored_notifications",
+    )
+    is_global = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ("-created_at",)
+
+    def __str__(self):
+        return self.title
+
+
+class UserNotification(BaseModel):
+    """A user's receipt and read state for a notification."""
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="notifications"
+    )
+    notification = models.ForeignKey(
+        Notification, on_delete=models.CASCADE, related_name="recipients"
+    )
+    is_read = models.BooleanField(default=False)
+    read_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=("user", "notification"), name="unique_user_notification"
+            )
+        ]
+        indexes = [
+            models.Index(
+                fields=("user", "is_read", "-created_at"),
+                name="users_usern_user_id_83e6e1_idx",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.user.email}: {self.notification.title}"
