@@ -5,7 +5,7 @@ from channels.layers import get_channel_layer
 from django.db import transaction
 from django.utils import timezone
 
-from .models import Notification, UserNotification
+from .models import Notification, User, UserNotification
 
 logger = logging.getLogger(__name__)
 
@@ -18,9 +18,9 @@ def notification_payload(notification, user_notification):
         "message": notification.message,
         "actor_id": str(notification.actor_id) if notification.actor_id else None,
         "is_read": user_notification.is_read,
-        "created_at": notification.created_at.isoformat()
-        if notification.created_at
-        else None,
+        "created_at": (
+            notification.created_at.isoformat() if notification.created_at else None
+        ),
     }
 
 
@@ -49,7 +49,12 @@ def _publish(user_ids, notification, recipient_rows):
 
 def create_notification(user, *, title, message, actor=None):
     """Create a notification for one recipient, optionally naming its actor."""
-    if not getattr(user, "message_notifications", True):
+    if (
+        not isinstance(user, User)
+        or not user.pk
+        or user._state.adding
+        or not user.message_notifications
+    ):
         return None
     notification = Notification.objects.create(
         title=title, message=message, actor=actor
@@ -61,8 +66,6 @@ def create_notification(user, *, title, message, actor=None):
 
 def create_global_notification(*, title, message, actor=None):
     """Create shared content and a read receipt for every eligible active user."""
-    from .models import User
-
     users = User.objects.filter(
         is_active=True,
         status=User.Status.ACTIVE,

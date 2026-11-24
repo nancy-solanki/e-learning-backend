@@ -27,23 +27,43 @@ from .services import UserService
 User = get_user_model()
 
 
+@extend_schema_view(
+    get=extend_schema(
+        tags=["Users"],
+        summary="List notifications",
+        description="List notifications addressed to the authenticated user.",
+        responses=NotificationSerializer(many=True),
+    )
+)
 class NotificationListView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = NotificationSerializer
+    queryset = UserNotification.objects.none()
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return self.queryset
         return UserNotification.objects.filter(user=self.request.user).select_related(
             "notification"
         )
 
 
+@extend_schema(
+    tags=["Users"],
+    summary="Mark a notification as read",
+    description="Mark one of the authenticated user's notifications as read.",
+    request=None,
+    responses={200: NotificationSerializer, 404: ErrorSerializer},
+)
 class NotificationReadView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
-        notification = UserNotification.objects.select_related("notification").filter(
-            pk=pk, user=request.user
-        ).first()
+        notification = (
+            UserNotification.objects.select_related("notification")
+            .filter(pk=pk, user=request.user)
+            .first()
+        )
         if notification is None:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
         if not notification.is_read:

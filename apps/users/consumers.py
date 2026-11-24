@@ -17,6 +17,4 @@ class NotificationConsumer(AsyncJsonWebsocketConsumer):
             await self.channel_layer.group_discard(group_name, self.channel_name)
 
     async def notification_created(self, event):
-        await self.send_json(
-            {"type": "notification", "data": event["notification"]}
-        )
+        await self.send_json({"type": "notification", "data": event["notification"]})

@@ -25,9 +25,24 @@ class Migration(migrations.Migration):
                         verbose_name="primary key",
                     ),
                 ),
-                ("created_at", models.DateTimeField(blank=True, null=True, verbose_name="created at")),
-                ("updated_at", models.DateTimeField(auto_now=True, blank=True, null=True, verbose_name="updated at")),
-                ("deleted_at", models.DateTimeField(blank=True, null=True, verbose_name="deleted at")),
+                (
+                    "created_at",
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="created at"
+                    ),
+                ),
+                (
+                    "updated_at",
+                    models.DateTimeField(
+                        auto_now=True, blank=True, null=True, verbose_name="updated at"
+                    ),
+                ),
+                (
+                    "deleted_at",
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="deleted at"
+                    ),
+                ),
                 ("title", models.CharField(max_length=255)),
                 ("message", models.TextField()),
                 ("is_global", models.BooleanField(default=False)),
@@ -57,9 +72,24 @@ class Migration(migrations.Migration):
                         verbose_name="primary key",
                     ),
                 ),
-                ("created_at", models.DateTimeField(blank=True, null=True, verbose_name="created at")),
-                ("updated_at", models.DateTimeField(auto_now=True, blank=True, null=True, verbose_name="updated at")),
-                ("deleted_at", models.DateTimeField(blank=True, null=True, verbose_name="deleted at")),
+                (
+                    "created_at",
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="created at"
+                    ),
+                ),
+                (
+                    "updated_at",
+                    models.DateTimeField(
+                        auto_now=True, blank=True, null=True, verbose_name="updated at"
+                    ),
+                ),
+                (
+                    "deleted_at",
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="deleted at"
+                    ),
+                ),
                 ("is_read", models.BooleanField(default=False)),
                 ("read_at", models.DateTimeField(blank=True, null=True)),
                 (
