@@ -1,17 +1,18 @@
-from datetime import datetime
-
 from dj_rest_auth.registration.serializers import (
     SocialLoginSerializer as BaseSocialLoginSerializer,
 )
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import check_password
 from django.contrib.auth.models import Group
+from django.utils import timezone
 from django.utils.encoding import DjangoUnicodeDecodeError, smart_str
 from django.utils.http import urlsafe_base64_decode
 from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
+
+from apps.core.email_notifications import queue_notification_email
 
 from .services import (
     account_activation_token,
@@ -83,6 +84,13 @@ class UserActivateAccountSerializer(serializers.Serializer):
 
             user.status = User.Status.ACTIVE
             user.save()
+            queue_notification_email(
+                user,
+                subject="Your Learnify email is verified",
+                title="Email address verified",
+                message="Your email address has been verified and your account is active.",
+                preference_required=False,
+            )
             return attrs
         except (DjangoUnicodeDecodeError, ValueError, User.DoesNotExist):
             raise serializers.ValidationError("Activation link is invalid or expired")
@@ -124,9 +132,19 @@ class UserChangePasswordSerializer(serializers.Serializer):
         if not check_password(old_password, user.password):
             raise serializers.ValidationError("Your password was incorrect.")
 
-        user.password_changed_at = datetime.now()
+        user.password_changed_at = timezone.now()
         user.set_password(new_password)
         user.save()
+        queue_notification_email(
+            user,
+            subject="Your Learnify password changed",
+            title="Password changed",
+            message=(
+                "The password for your Learnify account was changed. Contact support "
+                "immediately if you did not make this change."
+            ),
+            preference_required=False,
+        )
         return attrs
 
 
@@ -178,9 +196,19 @@ class UserPasswordResetSerializer(serializers.Serializer):
             if not password_reset_token.check_token(user, token):
                 raise serializers.ValidationError("Token is not valid or expired")
 
-            user.password_changed_at = datetime.now()
+            user.password_changed_at = timezone.now()
             user.set_password(password)
             user.save()
+            queue_notification_email(
+                user,
+                subject="Your Learnify password was reset",
+                title="Password reset complete",
+                message=(
+                    "The password for your Learnify account was reset. Contact support "
+                    "immediately if you did not make this change."
+                ),
+                preference_required=False,
+            )
             return attrs
         except (DjangoUnicodeDecodeError, ValueError):
             raise serializers.ValidationError("Token is not valid or expire")

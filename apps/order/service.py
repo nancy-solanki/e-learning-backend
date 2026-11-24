@@ -7,6 +7,7 @@ import razorpay
 from django.db import transaction
 from django.db.models import Q
 
+from apps.core.email_notifications import queue_notification_email
 from apps.coupon.models import Coupon
 from apps.course.models import Course
 from apps.enroll.repository import EnrollRepository
@@ -38,24 +39,50 @@ class OrderService:
         try:
             course = Course.objects.get(id=course_id)
         except Course.DoesNotExist:
+            OrderService.notify_payment_failure(
+                user,
+                message="The selected course could not be found.",
+            )
             raise ValueError("Course not found")
 
         if course.instructor == user:
+            OrderService.notify_payment_failure(
+                user,
+                course=course,
+                message="You cannot enroll in your own course.",
+            )
             raise ValueError("You can't enroll in your own course!")
 
         enroll = (
             EnrollRepository.get_enrollments_by_course(course).filter(user=user).first()
         )
         if enroll:
+            OrderService.notify_payment_failure(
+                user,
+                course=course,
+                message="You are already enrolled in this course.",
+            )
             raise ValueError("Already enrolled in this course!")
 
         razorpay_client = razorpay.Client(
             auth=(os.environ.get("RAZOR_KEY_ID"), os.environ.get("RAZOR_KEY_SECRET"))
         )
 
-        payment = razorpay_client.order.create(
-            {"amount": int(total_paid) * 100, "currency": "INR", "payment_capture": "1"}
-        )
+        try:
+            payment = razorpay_client.order.create(
+                {
+                    "amount": int(total_paid) * 100,
+                    "currency": "INR",
+                    "payment_capture": "1",
+                }
+            )
+        except Exception:
+            OrderService.notify_payment_failure(
+                user,
+                course=course,
+                message="No charge was completed. Please try again later.",
+            )
+            raise
         return payment
 
     @staticmethod
@@ -68,8 +95,19 @@ class OrderService:
             total = math.floor(float(data["total_paid"]))
             course_id = data["course"]
         except (KeyError, ValueError, TypeError, OverflowError):
+            OrderService.notify_payment_failure(
+                user,
+                message=(
+                    "The payment details were invalid. Please retry with valid "
+                    "course and amount information."
+                ),
+            )
             return False, "Invalid payment data"
         if total < 0:
+            OrderService.notify_payment_failure(
+                user,
+                message="The payment amount was invalid. No charge was completed.",
+            )
             return False, "Invalid payment amount"
         coupon_id = data.get("coupon")
         is_free = data.get("is_free", False)
@@ -77,13 +115,37 @@ class OrderService:
         try:
             course = Course.objects.get(id=course_id)
         except Course.DoesNotExist:
+            OrderService.notify_payment_failure(
+                user,
+                message="The selected course could not be found.",
+            )
             return False, "Course not found"
 
         if course.instructor == user:
+            OrderService.notify_payment_failure(
+                user,
+                course=course,
+                message="You cannot enroll in your own course.",
+            )
             return False, "You can't enroll in your own course!"
-        if EnrollRepository.get_user_enrollments(user).filter(course=course).exists():
+
+        enroll = (
+            EnrollRepository.get_enrollments_by_course(course).filter(user=user).first()
+        )
+        if enroll:
+            OrderService.notify_payment_failure(
+                user,
+                course=course,
+                message="You are already enrolled in this course.",
+            )
             return False, "Already enrolled in this course!"
+
         if is_free and not course.is_free:
+            OrderService.notify_payment_failure(
+                user,
+                course=course,
+                message="This course is not marked as free.",
+            )
             return False, "Course is not free"
 
         coupon = None
@@ -118,8 +180,18 @@ class OrderService:
                 )
 
                 if check is not True:
+                    OrderService.notify_payment_failure(
+                        user,
+                        course=course,
+                        message="The payment could not be verified. Please try again.",
+                    )
                     return False, "Payment verification failed"
             except (json.JSONDecodeError, KeyError, Exception) as e:
+                OrderService.notify_payment_failure(
+                    user,
+                    course=course,
+                    message=f"Error processing payment response: {str(e)}",
+                )
                 return False, f"Error processing payment response: {str(e)}"
 
         if coupon:
@@ -186,4 +258,34 @@ class OrderService:
                         description=course.title,
                     )
 
+        queue_notification_email(
+            user,
+            subject=f"Payment received: {course.title}",
+            title="Payment successful",
+            message=(
+                f'Your payment of INR {total} for "{course.title}" was successful. '
+                "Your enrollment is confirmed."
+            ),
+            preference_required=False,
+        )
+        queue_notification_email(
+            course.instructor,
+            subject=f"New learner in {course.title}",
+            title="A learner enrolled in your course",
+            message=(
+                f'{user.get_full_name() or user.email} enrolled in "{course.title}".'
+            ),
+        )
+
         return True, "Payment success"
+
+    @staticmethod
+    def notify_payment_failure(user, *, course=None, message):
+        course_title = course.title if course is not None else "your course"
+        queue_notification_email(
+            user,
+            subject=f"Payment failed: {course_title}",
+            title="Payment unsuccessful",
+            message=f"Payment for {course_title} was not completed. {message}",
+            preference_required=False,
+        )

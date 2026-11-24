@@ -20,6 +20,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from apps.auth.services import generate_uid
+from apps.core.email_notifications import queue_notification_email
 from apps.core.permission import IsSuperuser
 from apps.core.schema import DetailSerializer, MessageSerializer
 from apps.core.services import send_email
@@ -231,6 +232,15 @@ class AcceptInvitationSerializer(serializers.Serializer):
                     "is_active",
                     "updated_at",
                 )
+            )
+            queue_notification_email(
+                user,
+                subject="Your Learnify invitation is active",
+                title="Account activated",
+                message=(
+                    "Your invitation was accepted and your Learnify account is active."
+                ),
+                preference_required=False,
             )
             return user
 

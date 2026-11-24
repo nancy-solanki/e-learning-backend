@@ -7,6 +7,7 @@ from rest_framework.generics import ListAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
+from apps.core.email_notifications import notify_course_learners
 from apps.core.moderation import AdminStatusOnlyMixin, InstructorSubmissionMixin
 from apps.core.permission import IsInstructorOrAdmin
 from apps.core.schema import MessageSerializer
@@ -118,6 +119,15 @@ class AllSectionViewSet(
         instance = self.get_object()
         SectionService.toggle_section_status(instance)
         if instance.deleted_at:
+            notify_course_learners(
+                instance.course,
+                subject=f"Course update: {instance.course.title}",
+                title="Course content was removed",
+                message=(
+                    f'The section "{instance.title}" in "{instance.course.title}" '
+                    "is no longer available."
+                ),
+            )
             return Response(
                 {"message": "Deleted successfully"}, status=status.HTTP_204_NO_CONTENT
             )

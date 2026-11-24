@@ -3,7 +3,7 @@ from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, extend_schema_view
-from rest_framework import filters, status
+from rest_framework import filters, serializers, status
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
@@ -22,6 +22,19 @@ from .serializers import UserProfileSerializer, UserSerializer
 from .services import UserService
 
 User = get_user_model()
+
+
+class AccountStatusChangeSerializer(serializers.Serializer):
+    reason = serializers.CharField(required=False, allow_blank=True, max_length=500)
+
+    def to_internal_value(self, data):
+        if (
+            isinstance(data, dict)
+            and "reason" in data
+            and not isinstance(data["reason"], str)
+        ):
+            raise serializers.ValidationError({"reason": "Not a valid string."})
+        return super().to_internal_value(data)
 
 
 @extend_schema_view(
@@ -123,10 +136,16 @@ class BecomeInstructorView(APIView):
         request=None,
         responses={200: MessageSerializer, 400: ErrorSerializer, 500: ErrorSerializer},
     ),
+    modify_instructor_privileges=extend_schema(
+        tags=["Users"],
+        description="Toggle another user's instructor role. Administrator access required.",
+        request=None,
+        responses={200: MessageSerializer, 400: ErrorSerializer, 500: ErrorSerializer},
+    ),
     modify_user_status=extend_schema(
         tags=["Users"],
         description="Toggle another user's status. Administrator access required.",
-        request=None,
+        request=AccountStatusChangeSerializer,
         responses={200: MessageSerializer, 400: ErrorSerializer, 500: ErrorSerializer},
     ),
 )
@@ -167,6 +186,22 @@ class UserViewSet(ModelViewSet):
             )
 
     @action(["put"], detail=True)
+    def modify_instructor_privileges(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance == request.user:
+            return Response(
+                {"error": "Cannot modify your own instructor privileges"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            message = UserService.toggle_instructor(instance)
+            return Response({"message": message}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(["put"], detail=True)
     def modify_user_status(self, request, *args, **kwargs):
         instance = self.get_object()
         if instance.pk == request.user.pk:
@@ -174,8 +209,12 @@ class UserViewSet(ModelViewSet):
                 {"error": "Cannot suspend your own account"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        reason_serializer = AccountStatusChangeSerializer(data=request.data)
+        reason_serializer.is_valid(raise_exception=True)
         try:
-            message = UserService.toggle_status(instance)
+            message = UserService.toggle_status(
+                instance, reason=reason_serializer.validated_data.get("reason", "")
+            )
             return Response({"message": message}, status=status.HTTP_200_OK)
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)

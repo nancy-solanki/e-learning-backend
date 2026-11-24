@@ -295,6 +295,19 @@ class TestUserChangePasswordSerializer:
         user.refresh_from_db()
         assert user.password_changed_at is not None
 
+    def test_password_change_sends_essential_notice(self, mocker):
+        notify = mocker.patch("apps.auth.serializers.queue_notification_email")
+        user = UserFactory()
+        serializer = UserChangePasswordSerializer(
+            data={"old_password": self.RAW_PASSWORD, "new_password": "NewPass99!"},
+            context={"user": user},
+        )
+
+        serializer.is_valid(raise_exception=True)
+
+        notify.assert_called_once()
+        assert notify.call_args.kwargs["preference_required"] is False
+
     def test_missing_old_password_is_invalid(self):
         user = UserFactory()
         s = UserChangePasswordSerializer(
@@ -421,3 +434,16 @@ class TestUserPasswordResetSerializer:
         s.is_valid(raise_exception=True)
         user.refresh_from_db()
         assert user.password_changed_at is not None
+
+    def test_password_reset_sends_essential_notice(self, mocker):
+        notify = mocker.patch("apps.auth.serializers.queue_notification_email")
+        user = UserFactory()
+        serializer = UserPasswordResetSerializer(
+            data={"password": "BrandNewPass1!"},
+            context={"uid": _uid(user), "token": password_reset_token.make_token(user)},
+        )
+
+        serializer.is_valid(raise_exception=True)
+
+        notify.assert_called_once()
+        assert notify.call_args.kwargs["preference_required"] is False

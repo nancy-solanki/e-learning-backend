@@ -9,6 +9,7 @@ from rest_framework.response import Response
 
 from apps.category.models import Category
 from apps.core.cache import PublicResponseCacheMixin
+from apps.core.email_notifications import notify_course_learners
 from apps.core.moderation import AdminStatusOnlyMixin, InstructorSubmissionMixin
 from apps.core.permission import IsInstructorOrAdmin, IsSuperuserOrReadOnly
 from apps.core.schema import MessageSerializer
@@ -268,6 +269,15 @@ class AllCourseViewSet(
         instance = self.get_object()
         CourseService.toggle_course_status(instance)
         if instance.is_deleted:
+            notify_course_learners(
+                instance,
+                subject=f"Course update: {instance.title}",
+                title="A course you are enrolled in was removed",
+                message=(
+                    f'The course "{instance.title}" is no longer available. '
+                    "Contact support if you believe this is a mistake."
+                ),
+            )
             return Response(
                 {"message": "Deleted successfully"}, status=status.HTTP_204_NO_CONTENT
             )

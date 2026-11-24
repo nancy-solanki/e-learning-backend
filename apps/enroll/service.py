@@ -1,3 +1,5 @@
+from apps.core.email_notifications import queue_notification_email
+
 from .repository import EnrollRepository
 
 
@@ -26,7 +28,37 @@ class EnrollService:
             return "Already enrolled"
 
         EnrollRepository.create_enrollment(user, course)
+        queue_notification_email(
+            user,
+            subject=f"Enrollment confirmed: {course.title}",
+            title="You are enrolled",
+            message=f'Your enrollment in "{course.title}" is confirmed.',
+            preference_required=False,
+        )
+        queue_notification_email(
+            course.instructor,
+            subject=f"New learner in {course.title}",
+            title="A learner enrolled in your course",
+            message=(
+                f'{user.get_full_name() or user.email} enrolled in "{course.title}".'
+            ),
+        )
         return "Successfully enrolled"
+
+    @staticmethod
+    def revoke_enrollment(enrollment):
+        EnrollRepository.delete_enrollment(enrollment)
+        queue_notification_email(
+            enrollment.user,
+            subject=f"Course access revoked: {enrollment.course.title}",
+            title="Course access was revoked",
+            message=(
+                f'Your access to "{enrollment.course.title}" has been revoked. '
+                "Contact support if you believe this is a mistake."
+            ),
+            preference_required=False,
+        )
+        return "Enrollment revoked"
 
     @staticmethod
     def get_enrollments_by_course(slug):

@@ -4,6 +4,7 @@ from django.urls import reverse
 
 from apps.category.models import Category
 from apps.category.service import CategoryService
+from apps.course.tests.factories import CourseFactory
 from apps.users.tests.factories import UserFactory
 
 pytestmark = pytest.mark.django_db
@@ -40,7 +41,8 @@ def test_write_permissions(api_client, category, cloud_upload, role, expected, m
 
 
 @pytest.mark.parametrize("role", ["superuser", "admin_group"])
-def test_create(admin_client, upload, cloud_upload, role):
+def test_create(admin_client, upload, cloud_upload, mocker, role):
+    notify_instructors = mocker.patch.object(CategoryService, "notify_instructors")
     if role == "admin_group":
         user = UserFactory()
         user.groups.add(Group.objects.get_or_create(name="admin")[0])
@@ -55,6 +57,7 @@ def test_create(admin_client, upload, cloud_upload, role):
     assert category.user == admin_client.handler._force_user
     assert response.data["thumbnail"]["url"] == category.thumbnail.url
     cloud_upload.assert_called_once()
+    notify_instructors.assert_called_once_with(category, event="created")
 
 
 @pytest.mark.parametrize("method", ["post", "put"])
@@ -118,14 +121,73 @@ def test_description_only_patch(admin_client, category, cloud_upload):
     cloud_upload.assert_not_called()
 
 
-def test_delete_hides_category(admin_client, api_client, category):
+def test_delete_hides_category(admin_client, api_client, category, mocker):
+    notify_instructors = mocker.patch.object(CategoryService, "notify_instructors")
     url = detail_url(category)
     assert admin_client.delete(url).status_code == 204
+    notify_instructors.assert_called_once_with(category, event="deleted")
     category.refresh_from_db()
     assert category.deleted_at is not None
     assert api_client.get(url).status_code == 404
     assert api_client.get(list_url()).data["count"] == 0
     assert admin_client.delete(url).status_code == 404
+
+
+@pytest.mark.parametrize("created, expected_count", [(True, 2), (False, 1)])
+def test_notify_instructors_respects_scope_and_email_preference(
+    category, mocker, created, expected_count
+):
+    from django.contrib.auth.models import Group
+
+    from apps.category.service import CategoryService
+
+    instructor_group = Group.objects.get_or_create(name="instructor")[0]
+    affected = UserFactory(email_notifications=True, status="AC")
+    affected.groups.add(instructor_group)
+    CourseFactory(instructor=affected).categories.add(category)
+
+    unaffected = UserFactory(email_notifications=True, status="AC")
+    unaffected.groups.add(instructor_group)
+
+    opted_out = UserFactory(email_notifications=False, status="AC")
+    opted_out.groups.add(instructor_group)
+    CourseFactory(instructor=opted_out).categories.add(category)
+
+    queue_email = mocker.patch("apps.category.service.queue_notification_email")
+    event = "created" if created else "deleted"
+    CategoryService.notify_instructors(category, event=event)
+
+    assert queue_email.call_count == expected_count
+    notified_users = {call.args[0] for call in queue_email.call_args_list}
+    assert affected in notified_users
+    assert (unaffected in notified_users) is created
+    assert opted_out not in notified_users
+
+
+def test_category_changes_notify_enrolled_learners_once(category, mocker):
+    from apps.category.service import CategoryService
+    from apps.enroll.models import Enroll
+
+    learner = UserFactory(email_notifications=True, status="AC")
+    course = CourseFactory()
+    course.categories.add(category)
+    another_course = CourseFactory()
+    another_course.categories.add(category)
+    Enroll.objects.create(user=learner, course=course)
+    Enroll.objects.create(user=learner, course=another_course)
+
+    queue_email = mocker.patch("apps.category.service.queue_notification_email")
+    CategoryService.notify_instructors(
+        category,
+        event="renamed",
+        previous_title="Old category",
+    )
+
+    learner_notices = [
+        call for call in queue_email.call_args_list if call.args[0] == learner
+    ]
+    assert len(learner_notices) == 1
+    assert "catalog" in learner_notices[0].kwargs["title"].lower()
 
 
 @pytest.mark.parametrize("method", ["get", "put", "patch", "delete"])

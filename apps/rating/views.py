@@ -4,6 +4,7 @@ from rest_framework import filters, viewsets
 from rest_framework.generics import ListAPIView
 from rest_framework.permissions import BasePermission, IsAuthenticated
 
+from apps.core.email_notifications import queue_notification_email
 from apps.core.permission import IsInstructorOrAdmin, IsOwnerOrInstructor
 
 from .filters import RatingFilter
@@ -86,6 +87,34 @@ class RatingViewSet(RatingFilteringMixin, viewsets.ModelViewSet):
         serializer.instance = RatingService.add_rating(
             user=self.request.user, validated_data=serializer.validated_data
         )
+        rating = serializer.instance
+        queue_notification_email(
+            rating.course.instructor,
+            subject=f"New review for {rating.course.title}",
+            title="Your course received a review",
+            message=(
+                f"{rating.user.get_full_name() or rating.user.email} left a "
+                f'{rating.rating}-star review for "{rating.course.title}".'
+            ),
+        )
+
+    def perform_update(self, serializer):
+        rating = serializer.instance
+        previous_response = rating.response
+        rating = serializer.save()
+        if (
+            self.request.user.pk == rating.course.instructor_id
+            and rating.response
+            and rating.response != previous_response
+        ):
+            queue_notification_email(
+                rating.user,
+                subject=f"Your review received a reply: {rating.course.title}",
+                title="Your instructor replied to your review",
+                message=(
+                    f'Your instructor replied to your review for "{rating.course.title}".'
+                ),
+            )
 
     def perform_destroy(self, instance):
         instance.soft_delete()

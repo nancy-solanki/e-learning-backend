@@ -24,14 +24,18 @@ class TestUserService:
         result = UserService.toggle_admin(user)
         assert result == "User removed from admin group successfully"
 
-    def test_toggle_status_active(self):
+    def test_toggle_status_active(self, mocker):
+        notify = mocker.patch("apps.users.services.queue_notification_email")
         user = MagicMock()
         user.toggle_status.return_value = "activated"
         result = UserService.toggle_status(user)
         assert result == "User activated successfully"
+        assert notify.call_args.kwargs["preference_required"] is False
 
-    def test_toggle_status_suspended(self):
+    def test_toggle_status_suspended(self, mocker):
+        notify = mocker.patch("apps.users.services.queue_notification_email")
         user = MagicMock()
         user.toggle_status.return_value = "suspended"
         result = UserService.toggle_status(user)
         assert result == "User suspended successfully"
+        assert notify.call_args.kwargs["preference_required"] is False

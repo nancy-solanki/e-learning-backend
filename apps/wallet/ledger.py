@@ -3,6 +3,8 @@ from decimal import Decimal
 from django.db import transaction
 from django.utils import timezone
 
+from apps.core.email_notifications import queue_notification_email
+
 from .models import Wallet, WalletEntry
 
 
@@ -56,6 +58,28 @@ def record_entry(
         wallet.save(
             update_fields=["current_earnings", "total_earnings", "total_withdraws"]
         )
+    if kind == "withdrawal":
+        queue_notification_email(
+            wallet.user,
+            subject="Payout request received",
+            title="Payout request received",
+            message=(
+                f"Your payout request for INR {abs(amount):.2f} was recorded "
+                f"with status {entry.status}."
+            ),
+            preference_required=False,
+        )
+    if kind == "refund":
+        queue_notification_email(
+            wallet.user,
+            subject="Refund recorded",
+            title="Refund recorded",
+            message=(
+                f"A refund of INR {abs(amount):.2f} was recorded for "
+                f'"{description}".'
+            ),
+            preference_required=False,
+        )
     return entry
 
 
@@ -76,4 +100,14 @@ def settle_withdrawal(entry, status):
         wallet.total_withdraws -= entry.amount
         wallet.save(update_fields=["current_earnings", "total_withdraws"])
     entry.save(update_fields=["status", "completed_at"])
+    queue_notification_email(
+        wallet.user,
+        subject=f"Payout {status}",
+        title=f"Payout {status}",
+        message=(
+            f"Your payout of INR {abs(entry.amount):.2f} is now {status}. "
+            f"The destination account ended in {entry.account_last4}."
+        ),
+        preference_required=False,
+    )
     return entry

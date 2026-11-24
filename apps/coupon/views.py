@@ -11,6 +11,7 @@ from rest_framework.views import APIView
 from apps.core.schema import ErrorsSerializer, MessageSerializer
 from apps.course.models import Course
 
+from .email_notifications import notify_coupon_audience
 from .filters import CouponFilter
 from .models import Coupon
 from .pagination import CouponPagination
@@ -90,9 +91,42 @@ class CouponViewSet(viewsets.ModelViewSet):
                 raise PermissionDenied(
                     "You can only create coupons for your own courses."
                 )
-            serializer.save(is_instructor_created=True)
-            return
-        serializer.save()
+            coupon = serializer.save(is_instructor_created=True)
+        else:
+            coupon = serializer.save()
+        notify_coupon_audience(coupon, event="created")
+
+    def perform_update(self, serializer):
+        coupon = serializer.instance
+        tracked_fields = {
+            "code",
+            "is_global",
+            "is_unlimited",
+            "limit",
+            "value",
+            "coupon_type",
+            "course",
+            "expired_at",
+        }
+        previous_values = {
+            field: getattr(coupon, field)
+            for field in tracked_fields
+            if field in serializer.validated_data
+        }
+        changed = any(
+            previous_values[field] != value
+            for field, value in serializer.validated_data.items()
+            if field in previous_values
+        )
+        expiry_changed = (
+            "expired_at" in previous_values
+            and previous_values["expired_at"] != serializer.validated_data["expired_at"]
+        )
+        coupon = serializer.save(
+            **({"expiry_notified_at": None} if expiry_changed else {})
+        )
+        if changed:
+            notify_coupon_audience(coupon, event="updated")
 
     def destroy(self, request, *args, **kwargs):
         try:
@@ -106,7 +140,13 @@ class CouponViewSet(viewsets.ModelViewSet):
             if instance is None:
                 raise exc
             self.check_object_permissions(request, instance)
+        was_deleted = instance.is_deleted
         message = CouponService.toggle_coupon_status(instance)
+        if was_deleted != instance.is_deleted:
+            notify_coupon_audience(
+                instance,
+                event="restored" if was_deleted else "removed",
+            )
         return Response({"message": message}, status=status.HTTP_200_OK)
 
 

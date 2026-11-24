@@ -3,6 +3,7 @@ from django.core.cache import cache
 from rest_framework import serializers
 
 from apps.common.service import FileService
+from apps.core.email_notifications import queue_notification_email
 from apps.users.cache import user_profile_cache_key
 
 User = get_user_model()
@@ -33,8 +34,22 @@ class BaseUserSerializer(serializers.ModelSerializer):
         return data
 
     def update(self, instance, validated_data):
+        previous_email = instance.email
         instance = super().update(instance, validated_data)
         cache.delete(user_profile_cache_key(instance.pk))
+        if previous_email != instance.email:
+            for email in {previous_email, instance.email}:
+                queue_notification_email(
+                    instance,
+                    subject="Your Learnify email address changed",
+                    title="Email address changed",
+                    message=(
+                        "The email address for your Learnify account was changed. "
+                        "Contact support immediately if you did not make this change."
+                    ),
+                    preference_required=False,
+                    recipient_email=email,
+                )
         return instance
 
 
@@ -53,6 +68,7 @@ class UserProfileSerializer(BaseUserSerializer):
             "birth_date",
             "gender",
             "email_notifications",
+            "promotional_emails",
             "public_profile",
             "search_engine_visibility",
             "share_learning_activity",
@@ -104,11 +120,13 @@ class UserSerializer(BaseUserSerializer):
             "birth_date",
             "gender",
             "email_notifications",
+            "promotional_emails",
             "public_profile",
             "search_engine_visibility",
             "share_learning_activity",
             "role",
             "status",
+            "suspension_reason",
             "language",
             "bio",
             "full_name",
@@ -118,6 +136,7 @@ class UserSerializer(BaseUserSerializer):
             "deleted_at",
             "password_changed_at",
         ]
+        read_only_fields = ("suspension_reason",)
 
     def get_status(self, obj) -> str:
         return obj.get_status_display()

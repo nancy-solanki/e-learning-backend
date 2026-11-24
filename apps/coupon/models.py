@@ -21,6 +21,7 @@ class Coupon(BaseModel):
     )
     course = models.ForeignKey("course.Course", on_delete=models.RESTRICT)
     expired_at = models.DateField(default=None, null=True)
+    expiry_notified_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return self.code
@@ -28,7 +29,7 @@ class Coupon(BaseModel):
     def save(self, *args, **kwargs):
         if self.expired_at is None:
             self.expired_at = date.today() + timedelta(days=3)
-        super(Coupon, self).save(*args, **kwargs)
+        super().save(*args, **kwargs)
 
     def soft_delete(self):
         from django.utils import timezone

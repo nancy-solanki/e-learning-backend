@@ -52,6 +52,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
         except ValueError as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         serializer.save(user=request.user, thumbnail=file_instance)
+        CategoryService.notify_instructors(serializer.instance, event="created")
         headers = self.get_success_headers(serializer.data)
         return Response(
             serializer.data, status=status.HTTP_201_CREATED, headers=headers
@@ -63,6 +64,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
+        previous_title = instance.title
         thumbnail = request.FILES.getlist("thumbnail")
         if not thumbnail and not partial:
             return Response(
@@ -75,10 +77,17 @@ class CategoryViewSet(viewsets.ModelViewSet):
             except ValueError as e:
                 return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         serializer.save(**save_kwargs)
+        if instance.title != previous_title:
+            CategoryService.notify_instructors(
+                instance,
+                event="renamed",
+                previous_title=previous_title,
+            )
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_200_OK, headers=headers)
 
     def destroy(self, request, *args, **kwargs):
         category = self.get_object()
+        CategoryService.notify_instructors(category, event="deleted")
         CategoryService.delete_category(category)
         return Response(status=status.HTTP_204_NO_CONTENT)

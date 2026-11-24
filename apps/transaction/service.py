@@ -1,3 +1,5 @@
+from apps.core.email_notifications import queue_notification_email
+
 from .repository import TransactionRepository
 
 
@@ -47,7 +49,20 @@ class TransactionService:
 
     @staticmethod
     def update_transaction_status(transaction, status):
-        """
-        Updates the status of a transaction.
-        """
-        return TransactionRepository.update_transaction(transaction, status=status)
+        """Updates the status of a transaction."""
+        previous_status = transaction.status
+        transaction = TransactionRepository.update_transaction(
+            transaction, status=status
+        )
+        if previous_status != transaction.status:
+            queue_notification_email(
+                transaction.user,
+                subject=f"Payment status: {transaction.status}",
+                title=f"Payment {transaction.status}",
+                message=(
+                    f"Your transaction for INR {transaction.amount} is now "
+                    f"{transaction.status}. {transaction.description or ''}"
+                ),
+                preference_required=False,
+            )
+        return transaction

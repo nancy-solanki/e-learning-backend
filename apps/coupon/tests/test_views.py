@@ -27,13 +27,15 @@ def test_student_cannot_manage(client):
     assert client.get(url()).status_code == 403
 
 
-def test_instructor_create_and_list(client, instructor, course):
+def test_instructor_create_and_list(client, instructor, course, mocker):
+    notify = mocker.patch("apps.coupon.views.notify_coupon_audience")
     client.force_authenticate(instructor)
     response = client.post(
         url(), {"code": "SAVE", "course": str(course.pk)}, format="json"
     )
     assert response.status_code == 201, response.data
     assert Coupon.objects.get(code="SAVE").course == course
+    notify.assert_called_once_with(Coupon.objects.get(code="SAVE"), event="created")
     CouponFactory()
     response = client.get(url())
     assert response.data["count"] == 1

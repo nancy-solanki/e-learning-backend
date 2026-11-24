@@ -159,3 +159,34 @@ def test_database_failure_rolls_back(gateway, mocker):
     assert not Order.objects.exists()
     coupon.refresh_from_db()
     assert coupon.used == 0
+
+
+def test_gateway_order_failure_notifies_user(gateway, mocker):
+    course = CourseFactory()
+    user = UserFactory()
+    notify = mocker.patch("apps.order.service.OrderService.notify_payment_failure")
+    gateway.order.create.side_effect = RuntimeError("Gateway unavailable")
+
+    with pytest.raises(RuntimeError, match="Gateway unavailable"):
+        OrderService.create_razorpay_order(100, course.pk, user)
+
+    notify.assert_called_once_with(
+        user,
+        course=course,
+        message="No charge was completed. Please try again later.",
+    )
+
+
+def test_verification_failure_notifies_user(gateway, mocker):
+    course = CourseFactory()
+    user = UserFactory()
+    notify = mocker.patch("apps.order.service.OrderService.notify_payment_failure")
+    gateway.utility.verify_payment_signature.return_value = False
+
+    assert not OrderService.process_successful_payment(payload(course), user)[0]
+
+    notify.assert_called_once_with(
+        user,
+        course=course,
+        message="The payment could not be verified. Please try again.",
+    )

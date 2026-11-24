@@ -6,6 +6,7 @@ from rest_framework.generics import ListAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
+from apps.core.email_notifications import notify_course_learners
 from apps.core.moderation import AdminStatusOnlyMixin, InstructorSubmissionMixin
 from apps.core.permission import IsInstructorOrAdmin
 from apps.core.schema import MessageSerializer
@@ -138,6 +139,16 @@ class AllLectureViewSet(
     def _destroy_instructor(self, request, *args, **kwargs):
         instance = self.get_object()
         message = LectureService.toggle_lecture_status(instance)
+        if "deleted" in message:
+            notify_course_learners(
+                instance.course,
+                subject=f"Course update: {instance.course.title}",
+                title="Course content was removed",
+                message=(
+                    f'The lecture "{instance.title}" in "{instance.course.title}" '
+                    "is no longer available."
+                ),
+            )
         # Check if it was a deletion or activation for status code
         if "activated" in message:
             return Response({"message": message}, status=status.HTTP_200_OK)

@@ -55,6 +55,32 @@ class TestUserProfileView:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["phone_number"] == "9876543210"
 
+    def test_profile_email_change_notifies_old_and_new_addresses(
+        self, auth_client, user, mocker
+    ):
+        notify = mocker.patch("apps.users.serializers.queue_notification_email")
+        previous_email = user.email
+        new_email = "updated@example.com"
+
+        response = auth_client.put(self.url, {"email": new_email})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert {call.kwargs["recipient_email"] for call in notify.call_args_list} == {
+            previous_email,
+            new_email,
+        }
+        assert all(
+            call.kwargs["preference_required"] is False
+            for call in notify.call_args_list
+        )
+
+    def test_promotional_preference_is_profile_managed(self, auth_client, user):
+        response = auth_client.put(self.url, {"promotional_emails": True})
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["promotional_emails"] is True
+        user.refresh_from_db()
+        assert user.promotional_emails is True
+
     def test_profile_cache_is_user_specific_and_refreshed(self, auth_client, user):
         cache.clear()
         user_cache_key = user_profile_cache_key(user.pk)
@@ -220,6 +246,41 @@ class TestUserAdminActions:
         assert admin_client.put(url).status_code == 200
         user.refresh_from_db()
         assert user.status == "AC"
+
+    def test_status_reason_is_persisted_and_notified(self, admin_client, user, mocker):
+        notify = mocker.patch("apps.users.services.queue_notification_email")
+        response = admin_client.put(
+            f"/api/v1/users/{user.pk}/modify_user_status/",
+            {"reason": "Policy violation"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        user.refresh_from_db()
+        assert user.suspension_reason == "Policy violation"
+        assert "Policy violation" in notify.call_args.kwargs["message"]
+        assert notify.call_args.kwargs["preference_required"] is False
+
+    def test_invalid_status_reason_is_a_400(self, admin_client, user, mocker):
+        toggle = mocker.patch("apps.users.views.UserService.toggle_status")
+
+        response = admin_client.put(
+            f"/api/v1/users/{user.pk}/modify_user_status/",
+            {"reason": 42},
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        toggle.assert_not_called()
+
+    def test_instructor_privileges_can_be_granted_and_removed(self, admin_client, user):
+        url = f"/api/v1/users/{user.pk}/modify_instructor_privileges/"
+
+        assert admin_client.put(url).status_code == status.HTTP_200_OK
+        user.refresh_from_db()
+        assert user.is_instructor
+        assert admin_client.put(url).status_code == status.HTTP_200_OK
+        user.refresh_from_db()
+        assert not user.is_instructor
 
     @pytest.mark.parametrize("is_superuser", [True, False])
     def test_cannot_suspend_own_account(self, api_client, is_superuser):

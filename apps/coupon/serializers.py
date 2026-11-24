@@ -12,3 +12,4 @@ class CouponSerializer(serializers.ModelSerializer):
     class Meta:
         model = Coupon
         fields = "__all__"
+        read_only_fields = ("expiry_notified_at",)

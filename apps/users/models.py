@@ -30,6 +30,7 @@ class User(AbstractUser, BaseModel):
     status = models.CharField(
         _("status"), max_length=2, choices=Status.choices, default=Status.PENDING
     )
+    suspension_reason = models.TextField(blank=True, default="")
     birth_date = models.DateField(_("birth date"), null=True, blank=True)
     gender = models.CharField(
         _("gender"), max_length=2, choices=Gender.choices, default=Gender.MALE
@@ -39,6 +40,7 @@ class User(AbstractUser, BaseModel):
         _("message notifications"), default=True
     )
     email_notifications = models.BooleanField(_("email notifications"), default=True)
+    promotional_emails = models.BooleanField(_("promotional emails"), default=False)
     public_profile = models.BooleanField(_("public profile"), default=False)
     search_engine_visibility = models.BooleanField(
         _("search engine visibility"), default=False
@@ -85,7 +87,17 @@ class User(AbstractUser, BaseModel):
         self.groups.add(group)
         return "added to"
 
-    def toggle_status(self):
+    def toggle_instructor_privileges(self):
+        from django.contrib.auth.models import Group
+
+        group = Group.objects.get_or_create(name="instructor")[0]
+        if self.groups.filter(pk=group.pk).exists():
+            self.groups.remove(group)
+            return "removed from"
+        self.groups.add(group)
+        return "added to"
+
+    def toggle_status(self, reason=""):
         if self.status not in (self.Status.ACTIVE, self.Status.SUSPEND):
             raise ValueError("Only active or suspended users can change status.")
         self.status = (
@@ -93,7 +105,10 @@ class User(AbstractUser, BaseModel):
             if self.status == self.Status.ACTIVE
             else self.Status.ACTIVE
         )
-        self.save(update_fields=["status"])
+        self.suspension_reason = (
+            reason.strip() if self.status == self.Status.SUSPEND else ""
+        )
+        self.save(update_fields=["status", "suspension_reason", "updated_at"])
         return "activated" if self.status == self.Status.ACTIVE else "suspended"
 
     def __str__(self):
