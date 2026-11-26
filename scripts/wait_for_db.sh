@@ -12,6 +12,18 @@ echo "=================================================="
 echo "Checking database connection..."
 echo "=================================================="
 
+echo "Validating Django settings..."
+python -c "
+import os
+import django
+
+os.environ.setdefault(
+    'DJANGO_SETTINGS_MODULE',
+    os.getenv('DJANGO_SETTINGS_MODULE', 'config.settings.development'),
+)
+django.setup()
+"
+
 retries=0
 until python -c "
 import os
