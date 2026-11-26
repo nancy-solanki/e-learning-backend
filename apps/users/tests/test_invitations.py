@@ -147,7 +147,8 @@ def test_resend_rotates_token_and_queue_failure_preserves_old_link(
     admin_client, api_client
 ):
     user = invite(admin_client)
-    old_url = accept_url(user)
+    old_token = invitation_token.make_token(user)
+    old_url = accept_url(user, token=old_token)
     resend = reverse("user:resend-invite", kwargs={"pk": user.pk})
     with patch(
         "apps.users.invitations.send_email.delay",
@@ -155,7 +156,7 @@ def test_resend_rotates_token_and_queue_failure_preserves_old_link(
     ):
         assert admin_client.post(resend).status_code == 503
     user.refresh_from_db()
-    assert accept_url(user) == old_url
+    assert invitation_token.check_token(user, old_token)
     assert admin_client.post(resend).status_code == 200
     user.refresh_from_db()
     assert len(mail.outbox) == 2
