@@ -1,9 +1,4 @@
 import random
-
-from cloudinary_storage.storage import (
-    VideoMediaCloudinaryStorage,
-)
-from cloudinary_storage.validators import validate_video
 from django.db import models
 from django.utils import timezone
 from django.utils.text import slugify
@@ -32,13 +27,9 @@ class Lecture(BaseModel):
     lecture_type = models.CharField(
         max_length=10, choices=LectureType.choices, default=LectureType.VIDEO
     )
-    source = models.FileField(
-        upload_to="lecture/",
-        storage=VideoMediaCloudinaryStorage(),
-        validators=[validate_video],
-        null=True,
-        blank=True,
-    )
+    # Private S3 object key. Browser uploads use the multipart endpoints below;
+    # playback is served from the CloudFront HLS output, never this source file.
+    source = models.CharField(max_length=1024, null=True, blank=True)
     is_preview = models.BooleanField(default=False)
     document_content = models.TextField(null=True, blank=True)
     reject_reason = models.TextField(null=True)

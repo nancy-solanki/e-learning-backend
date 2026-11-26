@@ -12,6 +12,7 @@ class LectureSerializer(InstructorStatusReadOnlyMixin, serializers.ModelSerializ
     instructor = serializers.ReadOnlyField(source="instructor.username")
     course = serializers.PrimaryKeyRelatedField(queryset=Course.objects.all())
     section = serializers.PrimaryKeyRelatedField(queryset=Section.objects.all())
+    playback_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Lecture
@@ -23,6 +24,7 @@ class LectureSerializer(InstructorStatusReadOnlyMixin, serializers.ModelSerializ
             "status",
             "lecture_type",
             "source",
+            "playback_url",
             "is_preview",
             "document_content",
             "reject_reason",
@@ -45,7 +47,19 @@ class LectureSerializer(InstructorStatusReadOnlyMixin, serializers.ModelSerializ
             "created_at",
             "updated_at",
             "deleted_at",
+            "playback_url",
         )
+
+    def get_playback_url(self, obj):
+        if not obj.source or obj.lecture_type != Lecture.LectureType.VIDEO:
+            return None
+        if not obj.source.startswith("source/"):
+            # Existing Cloudinary URLs remain playable during the migration.
+            return obj.source if obj.source.startswith(("https://", "http://")) else None
+        if not settings.CLOUDFRONT_DOMAIN:
+            return None
+        token = obj.source.split("/")[2]
+        return f"{settings.CLOUDFRONT_DOMAIN}/hls/{token}/master.m3u8"
 
     def validate_source(self, value):
         if value.size > settings.MAX_LECTURE_VIDEO_SIZE:

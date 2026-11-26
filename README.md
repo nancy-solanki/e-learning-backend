@@ -48,6 +48,36 @@ and test settings continue to use the database search filter.
 
 ## Deploy with Docker Compose on EC2
 
+## Lecture video delivery
+
+Lecture videos upload directly from the browser to a private S3 bucket using
+multipart uploads. Use `/api/v1/lecture/uploads/multipart/` as follows:
+
+1. `POST` `{ "filename", "content_type", "size" }` to create an upload. The
+   response includes `key`, `upload_id`, and `part_size` (16 MiB by default).
+2. Split the file into parts of `part_size` (the last part may be smaller). For
+   each part, `PUT` `{ "key", "upload_id", "part_number" }` to the API for a
+   short-lived S3 URL. PUT the bytes to that URL and retain the returned ETag.
+3. `PATCH` `{ "key", "upload_id", "parts": [{ "ETag", "PartNumber" }] }` to
+   complete the multipart upload. `DELETE` `{ "key", "upload_id" }` aborts an
+   abandoned upload.
+4. Create or update a lecture with the returned `key` as `source`. Lecture
+   responses include `playback_url`, the expected HLS playlist on CloudFront.
+
+Set `AWS_STORAGE_BUCKET_NAME`, `AWS_REGION`, and `CLOUDFRONT_DOMAIN` in
+production. Give the API role S3 multipart create, list-parts, complete, abort,
+and object read permissions scoped to this bucket. Keep the bucket private and
+grant CloudFront read access through Origin Access Control (OAC). The bucket
+CORS policy must allow the frontend origin and `PUT`, and expose the `ETag`
+response header. Add an S3 lifecycle rule to abort incomplete multipart uploads.
+
+Connect S3 object-created events for `source/` to AWS Elemental MediaConvert (or
+an equivalent transcoder). Configure HLS output at
+`hls/<upload-token>/master.m3u8`, where `<upload-token>` is the third component
+of the source key, and serve the `hls/` prefix through CloudFront. This keeps
+video processing off the API and database containers. The playlist URL can
+return 404 until transcoding finishes.
+
 The production image runs the Django ASGI application with Daphne, plus a Celery
 worker and scheduler. Compose runs Redis locally; configure PostgreSQL (RDS)
 and OpenSearch as private services and set their endpoints in `.env`.

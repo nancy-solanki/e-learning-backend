@@ -429,9 +429,12 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
-MAX_LECTURE_VIDEO_SIZE = int(
-    os.getenv("MAX_LECTURE_VIDEO_SIZE", str(500 * 1024 * 1024))
-)
+MAX_LECTURE_VIDEO_SIZE = int(os.getenv("MAX_LECTURE_VIDEO_SIZE", str(8 * 1024**3)))
+AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME", "")
+AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
+S3_MULTIPART_PART_SIZE = int(os.getenv("S3_MULTIPART_PART_SIZE", str(16 * 1024 * 1024)))
+S3_PRESIGNED_URL_TTL = int(os.getenv("S3_PRESIGNED_URL_TTL", "900"))
+CLOUDFRONT_DOMAIN = os.getenv("CLOUDFRONT_DOMAIN", "").rstrip("/")
 
 CLOUDINARY_STORAGE = {
     "CLOUD_NAME": os.getenv("CLOUDINARY_CLOUD_NAME", ""),
@@ -439,13 +442,11 @@ CLOUDINARY_STORAGE = {
     "API_SECRET": os.getenv("CLOUDINARY_API_SECRET", ""),
     "SECURE": True,
 }
-
-# Configure direct SDK uploads as well as django-cloudinary-storage.
 cloudinary.config(
     cloud_name=CLOUDINARY_STORAGE["CLOUD_NAME"],
     api_key=CLOUDINARY_STORAGE["API_KEY"],
     api_secret=CLOUDINARY_STORAGE["API_SECRET"],
-    secure=CLOUDINARY_STORAGE["SECURE"],
+    secure=True,
 )
 
 STORAGES = {

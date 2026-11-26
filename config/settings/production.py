@@ -10,6 +10,11 @@ from .base import *
 
 DEBUG = False
 
+if not AWS_STORAGE_BUCKET_NAME or not CLOUDFRONT_DOMAIN:
+    raise RuntimeError(
+        "AWS_STORAGE_BUCKET_NAME and CLOUDFRONT_DOMAIN are required in production."
+    )
+
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS")
 
 if not ALLOWED_HOSTS:
