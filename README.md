@@ -34,3 +34,14 @@ Authenticated clients can receive new notifications over
 cookie and sends messages shaped as `{"type":"notification","data":{...}}`.
 Run the ASGI application (`config.asgi:application`) and configure Redis for
 the Channels layer in deployed environments.
+
+## Production course search
+
+Production course catalog searches use OpenSearch. Configure `OPENSEARCH_URL`
+and, when enabled on the domain, `OPENSEARCH_USERNAME` and
+`OPENSEARCH_PASSWORD`. TLS certificate verification is on by default. Before
+serving production traffic, run `python manage.py reindex_courses` with
+production settings and database access. The command creates the configured
+index and indexes existing courses; course and related category, tag, and
+instructor changes are then synchronized after database commits. Development
+and test settings continue to use the database search filter.

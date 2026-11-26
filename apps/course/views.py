@@ -1,3 +1,5 @@
+from django.conf import settings
+from django.db.models import Case, IntegerField, When
 from django.http import Http404
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.types import OpenApiTypes
@@ -18,6 +20,7 @@ from apps.localization.serializers import LocalizationSerializer
 
 from .filters import CourseFilter, ManagementCourseFilter
 from .models import Course, Tag
+from .search import search_course_ids
 from .serializers import (
     CourseResponseSerializer,
     CourseSerializer,
@@ -28,6 +31,39 @@ from .serializers import (
 from .service import CourseService
 
 # Create your views here.
+
+
+class CourseSearchFilter(filters.SearchFilter):
+    """Use OpenSearch for catalog terms while keeping ORM scope/filtering."""
+
+    def filter_queryset(self, request, queryset, view):
+        query = request.query_params.get(self.search_param, "").strip()
+        if query and getattr(settings, "OPENSEARCH_ENABLED", False):
+            ids = search_course_ids(query)
+            if not ids:
+                return queryset.none()
+            queryset = (
+                queryset.filter(pk__in=ids)
+                .annotate(
+                    _opensearch_rank=Case(
+                        *[When(pk=pk, then=rank) for rank, pk in enumerate(ids)],
+                        output_field=IntegerField(),
+                    )
+                )
+                .order_by("_opensearch_rank")
+            )
+            queryset._opensearch_relevance = True
+            return queryset
+        return super().filter_queryset(request, queryset, view)
+
+
+class CourseOrderingFilter(filters.OrderingFilter):
+    def filter_queryset(self, request, queryset, view):
+        if getattr(
+            queryset, "_opensearch_relevance", False
+        ) and not request.query_params.get(self.ordering_param):
+            return queryset
+        return super().filter_queryset(request, queryset, view)
 
 
 @extend_schema(
@@ -74,8 +110,8 @@ class CourseFilteringMixin:
     ]
     filter_backends = (
         DjangoFilterBackend,
-        filters.SearchFilter,
-        filters.OrderingFilter,
+        CourseSearchFilter,
+        CourseOrderingFilter,
     )
     filterset_class = CourseFilter
     ordering_fields = ("title", "price", "created_at", "updated_at")

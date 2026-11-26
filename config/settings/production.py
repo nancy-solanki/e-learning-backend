@@ -79,6 +79,18 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 # Cache / Redis
 # ---------------------------------------------------------------------------
 
+# Production course catalog search uses the managed OpenSearch endpoint.
+OPENSEARCH_ENABLED = True
+OPENSEARCH_URL = os.getenv("OPENSEARCH_URL", "").strip()
+OPENSEARCH_INDEX = os.getenv("OPENSEARCH_INDEX", "courses")
+OPENSEARCH_USERNAME = os.getenv("OPENSEARCH_USERNAME", "")
+OPENSEARCH_PASSWORD = os.getenv("OPENSEARCH_PASSWORD", "")
+OPENSEARCH_USE_SSL = env_bool("OPENSEARCH_USE_SSL", True)
+OPENSEARCH_VERIFY_CERTS = env_bool("OPENSEARCH_VERIFY_CERTS", True)
+
+if not OPENSEARCH_URL:
+    raise RuntimeError("OPENSEARCH_URL must be configured in production.")
+
 REDIS_URL = os.getenv("REDIS_URL")
 
 if not REDIS_URL:
