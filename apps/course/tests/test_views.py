@@ -102,11 +102,12 @@ def test_instructor_create_update_and_delete(client, instructor, mocker):
     assert course.status == Course.Status.DRAFT
     assert course.localization == localization
     assert str(response.data["localization"]) == str(localization.pk)
-    assert response.data["thumbnail"]["url"] == "https://example.com/thumbnail.png"
+    key = s3.put_object.call_args.kwargs["Key"]
+    assert response.data["thumbnail"]["url"] == f"https://example.com/{key}"
     assert {tag["name"] for tag in response.data["tags"]} == {"Python", "Django"}
     assert existing_tag in course.tags.all()
     assert Tag.objects.count() == 2
-    assert s3.put_object.call_args.kwargs["Key"].startswith("course/")
+    assert key.startswith("course/")
     target = MANAGE + f"{course.pk}/"
     assert client.patch(target, {"title": "Updated"}, format="json").status_code == 200
     course.refresh_from_db()
