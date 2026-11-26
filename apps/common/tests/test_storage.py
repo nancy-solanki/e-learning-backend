@@ -1,17 +1,11 @@
-import pytest
 from django.core.files.base import ContentFile
 from django.core.files.storage import storages
+from django.db import models
 
 from apps.lecture.models import Lecture
 
 
-@pytest.mark.parametrize(
-    "field, resource_type, extension",
-    [("thumbnail", "image", "png"), ("source", "video", "mp4")],
-)
-def test_lecture_media_uploads_to_cloudinary(
-    settings, mocker, field, resource_type, extension
-):
+def test_lecture_thumbnail_uploads_to_cloudinary(settings, mocker):
     settings.CLOUDINARY_STORAGE = {
         "CLOUD_NAME": "test-cloud",
         "API_KEY": "test-key",
@@ -22,16 +16,20 @@ def test_lecture_media_uploads_to_cloudinary(
         "cloudinary.uploader.upload",
         return_value={"public_id": "media/lecture/test-asset"},
     )
-    storage = Lecture._meta.get_field(field).storage
-    name = storage.save(f"lecture/test.{extension}", ContentFile(b"test content"))
+    storage = Lecture._meta.get_field("thumbnail").storage
+    name = storage.save("lecture/test.png", ContentFile(b"test content"))
 
     upload.assert_called_once()
-    assert upload.call_args.kwargs["resource_type"] == resource_type
+    assert upload.call_args.kwargs["resource_type"] == "image"
     assert upload.call_args.kwargs["folder"] == "media/lecture"
     assert name == "media/lecture/test-asset"
     assert storage.url(name).startswith(
-        f"https://res.cloudinary.com/test-cloud/{resource_type}/upload/"
+        "https://res.cloudinary.com/test-cloud/image/upload/"
     )
+
+
+def test_lecture_video_source_is_an_s3_key_field():
+    assert isinstance(Lecture._meta.get_field("source"), models.CharField)
 
 
 def test_static_assets_keep_local_storage():

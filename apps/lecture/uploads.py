@@ -10,10 +10,11 @@ def s3_client():
     return boto3.client("s3", region_name=settings.AWS_REGION)
 
 
-def initiate_upload(user_id, filename, content_type):
+def initiate_upload(user_id, filename, content_type, kind="video"):
     safe_name = os.path.basename(filename).replace(" ", "_")
     upload_token = uuid.uuid4()
-    key = f"source/{user_id}/{upload_token}/{safe_name}"
+    prefix = "resources" if kind == "resource" else "source"
+    key = f"{prefix}/{user_id}/{upload_token}/{safe_name}"
     result = s3_client().create_multipart_upload(
         Bucket=settings.AWS_STORAGE_BUCKET_NAME,
         Key=key,
@@ -53,11 +54,16 @@ def complete_upload(user_id, key, upload_id, parts):
         if not page.get("IsTruncated"):
             break
         marker = page["NextPartNumberMarker"]
-    if sum(part["Size"] for part in listed_parts) > settings.MAX_LECTURE_VIDEO_SIZE:
+    max_size = (
+        settings.MAX_LECTURE_RESOURCE_SIZE
+        if key.startswith("resources/")
+        else settings.MAX_LECTURE_VIDEO_SIZE
+    )
+    if sum(part["Size"] for part in listed_parts) > max_size:
         client.abort_multipart_upload(
             Bucket=settings.AWS_STORAGE_BUCKET_NAME, Key=key, UploadId=upload_id
         )
-        raise ValueError("Video exceeds the configured size limit.")
+        raise ValueError("File exceeds the configured size limit.")
     result = client.complete_multipart_upload(
         Bucket=settings.AWS_STORAGE_BUCKET_NAME,
         Key=key,
@@ -74,6 +80,19 @@ def abort_upload(user_id, key, upload_id):
     )
 
 
+def create_download_url(key):
+    if not key.startswith("resources/"):
+        raise ValueError("Invalid resource key.")
+    return s3_client().generate_presigned_url(
+        "get_object",
+        Params={"Bucket": settings.AWS_STORAGE_BUCKET_NAME, "Key": key},
+        ExpiresIn=settings.S3_PRESIGNED_URL_TTL,
+    )
+
+
 def _validate_key_owner(user_id, key):
-    if not key.startswith(f"source/{user_id}/"):
+    if not any(
+        key.startswith(f"{prefix}/{user_id}/")
+        for prefix in ("source", "resources")
+    ):
         raise ValueError("Upload does not belong to the authenticated user.")

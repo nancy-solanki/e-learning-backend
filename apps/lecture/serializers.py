@@ -50,7 +50,7 @@ class LectureSerializer(InstructorStatusReadOnlyMixin, serializers.ModelSerializ
             "playback_url",
         )
 
-    def get_playback_url(self, obj):
+    def get_playback_url(self, obj) -> str | None:
         if not obj.source or obj.lecture_type != Lecture.LectureType.VIDEO:
             return None
         if not obj.source.startswith("source/"):
@@ -60,14 +60,6 @@ class LectureSerializer(InstructorStatusReadOnlyMixin, serializers.ModelSerializ
             return None
         token = obj.source.split("/")[2]
         return f"{settings.CLOUDFRONT_DOMAIN}/hls/{token}/master.m3u8"
-
-    def validate_source(self, value):
-        if value.size > settings.MAX_LECTURE_VIDEO_SIZE:
-            max_size_mb = settings.MAX_LECTURE_VIDEO_SIZE / (1024 * 1024)
-            raise serializers.ValidationError(
-                f"Video exceeds the maximum upload size of {max_size_mb:g} MB."
-            )
-        return value
 
     def validate(self, attrs):
         request = self.context.get("request")

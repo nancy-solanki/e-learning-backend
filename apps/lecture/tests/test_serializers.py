@@ -1,9 +1,8 @@
 import pytest
-from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
-from rest_framework import serializers
 
 from apps.lecture.serializers import LectureSerializer
+from apps.lecture.upload_views import InitiateUploadSerializer
 from apps.users.tests.factories import UserFactory
 
 pytestmark = pytest.mark.django_db
@@ -34,18 +33,37 @@ def test_representation_and_readonly_instructor(lecture):
     assert serializer.data["instructor"] == lecture.instructor.username
 
 
+def test_source_accepts_private_s3_key(lecture):
+    key = f"source/{lecture.instructor_id}/upload-token/lecture.mp4"
+    serializer = LectureSerializer(lecture, data={"source": key}, partial=True)
+
+    assert serializer.is_valid(), serializer.errors
+    assert serializer.validated_data["source"] == key
+
+
 @override_settings(MAX_LECTURE_VIDEO_SIZE=4)
-def test_source_rejects_files_over_configured_size():
-    serializer = LectureSerializer()
-    upload = SimpleUploadedFile("lecture.mp4", b"12345", content_type="video/mp4")
+def test_video_upload_size_is_validated_when_initiated():
+    serializer = InitiateUploadSerializer(
+        data={
+            "filename": "lecture.mp4",
+            "content_type": "video/mp4",
+            "size": 5,
+        }
+    )
 
-    with pytest.raises(serializers.ValidationError, match="maximum upload size"):
-        serializer.validate_source(upload)
+    assert not serializer.is_valid()
+    assert "size" in serializer.errors
 
 
-@override_settings(MAX_LECTURE_VIDEO_SIZE=4)
-def test_source_accepts_files_at_configured_size():
-    serializer = LectureSerializer()
-    upload = SimpleUploadedFile("lecture.mp4", b"1234", content_type="video/mp4")
+@override_settings(MAX_LECTURE_RESOURCE_SIZE=4)
+def test_arbitrary_resource_content_type_and_size_limit():
+    serializer = InitiateUploadSerializer(
+        data={
+            "filename": "handout.zip",
+            "content_type": "application/zip",
+            "kind": "resource",
+            "size": 4,
+        }
+    )
 
-    assert serializer.validate_source(upload) is upload
+    assert serializer.is_valid(), serializer.errors

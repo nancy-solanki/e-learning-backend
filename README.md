@@ -64,6 +64,14 @@ multipart uploads. Use `/api/v1/lecture/uploads/multipart/` as follows:
 4. Create or update a lecture with the returned `key` as `source`. Lecture
    responses include `playback_url`, the expected HLS playlist on CloudFront.
 
+For PDFs, documents, ZIP archives, and other lecture resources, add
+`"kind": "resource"` to the initiation request. Resource uploads accept any
+content type and use `MAX_LECTURE_RESOURCE_SIZE` (1 GiB by default). Store the
+returned key in the lecture's `resources` JSON data along with the filename,
+content type, and size. Request
+`GET /api/v1/lecture/resources/download-url/?key=<resource-key>` with an
+authenticated account to get a short-lived download URL.
+
 Set `AWS_STORAGE_BUCKET_NAME`, `AWS_REGION`, and `CLOUDFRONT_DOMAIN` in
 production. Give the API role S3 multipart create, list-parts, complete, abort,
 and object read permissions scoped to this bucket. Keep the bucket private and
