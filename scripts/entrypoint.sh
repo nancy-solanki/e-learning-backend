@@ -16,7 +16,7 @@ echo "[2/3] Applying database migrations..."
 python manage.py migrate --noinput
 
 # 3. Seed Database Data
-if [ "${RUN_SEED_DATA:-true}" = "true" ]; then
+if [ "${RUN_SEED_DATA:-false}" = "true" ]; then
     echo "[3/3] Running database seed script..."
     python scripts/seed_data.py
 else

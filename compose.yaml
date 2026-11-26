@@ -1,0 +1,88 @@
+services:
+  api:
+    build: .
+    image: e-learning-backend:local
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment: &app-environment
+      DJANGO_SETTINGS_MODULE: config.settings.production
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/1}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      RUN_SEED_DATA: "false"
+      COLLECT_STATIC: "true"
+    expose:
+      - "8000"
+    volumes:
+      - static-data:/app/staticfiles
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import socket; socket.create_connection(('127.0.0.1', 8000), timeout=2).close()"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - static-data:/usr/share/nginx/html/static:ro
+    depends_on:
+      api:
+        condition: service_healthy
+
+  worker:
+    build: .
+    image: e-learning-backend:local
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment: *app-environment
+    entrypoint: ["celery"]
+    command: ["-A", "config.celery:celery_app", "worker", "--loglevel=INFO"]
+    depends_on:
+      api:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  beat:
+    build: .
+    image: e-learning-backend:local
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment: *app-environment
+    entrypoint: ["celery"]
+    command: ["-A", "config.celery:celery_app", "beat", "--loglevel=INFO"]
+    depends_on:
+      api:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  redis-data:
+  static-data:
