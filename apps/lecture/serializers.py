@@ -54,8 +54,7 @@ class LectureSerializer(InstructorStatusReadOnlyMixin, serializers.ModelSerializ
         if not obj.source or obj.lecture_type != Lecture.LectureType.VIDEO:
             return None
         if not obj.source.startswith("source/"):
-            # Existing Cloudinary URLs remain playable during the migration.
-            return obj.source if obj.source.startswith(("https://", "http://")) else None
+            return None
         if not settings.CLOUDFRONT_DOMAIN:
             return None
         token = obj.source.split("/")[2]

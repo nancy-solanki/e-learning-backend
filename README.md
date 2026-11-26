@@ -48,7 +48,13 @@ and test settings continue to use the database search filter.
 
 ## Deploy with Docker Compose on EC2
 
-## Lecture video delivery
+## S3 media and lecture video delivery
+
+Course/category thumbnails and profile images are uploaded by the API to S3
+under `course/`, `category/`, and `avatars/`. Django media storage also uses
+the same bucket. Configure `AWS_STORAGE_BUCKET_NAME`, `AWS_REGION`, and
+`CLOUDFRONT_DOMAIN`; CloudFront should serve those media prefixes from the
+private bucket using Origin Access Control.
 
 Lecture videos upload directly from the browser to a private S3 bucket using
 multipart uploads. Use `/api/v1/lecture/uploads/multipart/` as follows:
@@ -73,8 +79,8 @@ content type, and size. Request
 authenticated account to get a short-lived download URL.
 
 Set `AWS_STORAGE_BUCKET_NAME`, `AWS_REGION`, and `CLOUDFRONT_DOMAIN` in
-production. Give the API role S3 multipart create, list-parts, complete, abort,
-and object read permissions scoped to this bucket. Keep the bucket private and
+production. Give the API role S3 `PutObject`, `GetObject`, multipart create,
+list-parts, complete, and abort permissions scoped to this bucket. Keep the bucket private and
 grant CloudFront read access through Origin Access Control (OAC). The bucket
 CORS policy must allow the frontend origin and `PUT`, and expose the `ETag`
 response header. Add an S3 lifecycle rule to abort incomplete multipart uploads.

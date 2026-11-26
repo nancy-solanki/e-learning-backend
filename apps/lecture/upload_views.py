@@ -58,15 +58,22 @@ class CompleteUploadSerializer(serializers.Serializer):
     def validate_parts(self, parts):
         for part in parts:
             if set(part) != {"ETag", "PartNumber"}:
-                raise serializers.ValidationError("Each part needs ETag and PartNumber.")
-            if not isinstance(part["PartNumber"], int) or not 1 <= part["PartNumber"] <= 10000:
+                raise serializers.ValidationError(
+                    "Each part needs ETag and PartNumber."
+                )
+            if (
+                not isinstance(part["PartNumber"], int)
+                or not 1 <= part["PartNumber"] <= 10000
+            ):
                 raise serializers.ValidationError("Invalid part number.")
             if not isinstance(part["ETag"], str) or not re.fullmatch(
                 r'"?[a-fA-F0-9-]+"?', part["ETag"]
             ):
                 raise serializers.ValidationError("Invalid part ETag.")
         if [p["PartNumber"] for p in parts] != sorted({p["PartNumber"] for p in parts}):
-            raise serializers.ValidationError("Parts must be unique and ordered by part number.")
+            raise serializers.ValidationError(
+                "Parts must be unique and ordered by part number."
+            )
         return parts
 
 

@@ -2,8 +2,6 @@
 
 import uuid
 
-import cloudinary_storage.storage
-import cloudinary_storage.validators
 import django.db.models.deletion
 from django.conf import settings
 from django.db import migrations, models
@@ -81,12 +79,10 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "source",
-                    models.FileField(
+                    models.CharField(
                         blank=True,
+                        max_length=1024,
                         null=True,
-                        storage=cloudinary_storage.storage.VideoMediaCloudinaryStorage(),
-                        upload_to="lecture/",
-                        validators=[cloudinary_storage.validators.validate_video],
                     ),
                 ),
                 ("is_preview", models.BooleanField(default=False)),

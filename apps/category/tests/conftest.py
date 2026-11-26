@@ -42,6 +42,6 @@ def upload():
 def cloud_upload(mocker, file_factory):
     # Keep file persistence real; only the external upload boundary is replaced.
     return mocker.patch(
-        "apps.category.service.FileService.upload_file_to_cloud",
+        "apps.category.service.FileService.upload_file_to_s3",
         side_effect=lambda *args: file_factory(),
     )

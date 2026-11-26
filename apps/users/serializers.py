@@ -107,7 +107,7 @@ class UserProfileSerializer(BaseUserSerializer):
                 instance.avatar = ""
             else:
                 try:
-                    file_obj = FileService.upload_file_to_cloud(avatar, "avatars")
+                    file_obj = FileService.upload_file_to_s3(avatar, "avatars")
                 except ValueError as exc:
                     raise serializers.ValidationError({"avatar": str(exc)}) from exc
                 instance.avatar = file_obj.url

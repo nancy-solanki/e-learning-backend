@@ -65,12 +65,22 @@ def thumbnail_upload():
     )
 
 
+def mock_s3_upload(mocker, *, error=None):
+    s3 = mocker.Mock()
+    mocker.patch("apps.common.service.settings.AWS_STORAGE_BUCKET_NAME", "test-bucket")
+    mocker.patch(
+        "apps.common.service.settings.CLOUDFRONT_DOMAIN", "https://example.com"
+    )
+    if error:
+        mocker.patch("apps.common.service.boto3.client", side_effect=error)
+    else:
+        mocker.patch("apps.common.service.boto3.client", return_value=s3)
+    return s3
+
+
 def test_instructor_create_update_and_delete(client, instructor, mocker):
     client.force_authenticate(instructor)
-    upload = mocker.patch(
-        "cloudinary.uploader.upload",
-        return_value={"secure_url": "https://example.com/thumbnail.png"},
-    )
+    s3 = mock_s3_upload(mocker)
     existing_tag = Tag.objects.create(name="Python")
     category = CategoryFactory()
     localization = LocalizationFactory()
@@ -96,7 +106,7 @@ def test_instructor_create_update_and_delete(client, instructor, mocker):
     assert {tag["name"] for tag in response.data["tags"]} == {"Python", "Django"}
     assert existing_tag in course.tags.all()
     assert Tag.objects.count() == 2
-    assert upload.call_args.kwargs["folder"] == "course"
+    assert s3.put_object.call_args.kwargs["Key"].startswith("course/")
     target = MANAGE + f"{course.pk}/"
     assert client.patch(target, {"title": "Updated"}, format="json").status_code == 200
     course.refresh_from_db()
@@ -139,10 +149,7 @@ def test_update_thumbnail_and_clear_tags(client, course, mocker):
     course.refresh_from_db()
     assert course.thumbnail_id == original_thumbnail
     assert course.tags.count() == 1
-    mocker.patch(
-        "cloudinary.uploader.upload",
-        return_value={"secure_url": "https://example.com/new.png"},
-    )
+    mock_s3_upload(mocker)
     response = client.patch(
         target, {"thumbnail": thumbnail_upload(), "tags": "[]"}, format="multipart"
     )
@@ -164,7 +171,7 @@ def test_multipart_tag_names(client, course, tags):
 def test_upload_failure_does_not_change_course_or_create_tags(client, course, mocker):
     client.force_authenticate(course.instructor)
     original_thumbnail = course.thumbnail_id
-    mocker.patch("cloudinary.uploader.upload", side_effect=ValueError("Upload failed"))
+    mock_s3_upload(mocker, error=ValueError("Upload failed"))
     response = client.patch(
         MANAGE + f"{course.pk}/",
         {"thumbnail": thumbnail_upload(), "tags": ["New"]},

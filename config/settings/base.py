@@ -10,7 +10,6 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
-import cloudinary
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -437,22 +436,19 @@ S3_MULTIPART_PART_SIZE = int(os.getenv("S3_MULTIPART_PART_SIZE", str(16 * 1024 *
 S3_PRESIGNED_URL_TTL = int(os.getenv("S3_PRESIGNED_URL_TTL", "900"))
 CLOUDFRONT_DOMAIN = os.getenv("CLOUDFRONT_DOMAIN", "").rstrip("/")
 
-CLOUDINARY_STORAGE = {
-    "CLOUD_NAME": os.getenv("CLOUDINARY_CLOUD_NAME", ""),
-    "API_KEY": os.getenv("CLOUDINARY_API_KEY", ""),
-    "API_SECRET": os.getenv("CLOUDINARY_API_SECRET", ""),
-    "SECURE": True,
-}
-cloudinary.config(
-    cloud_name=CLOUDINARY_STORAGE["CLOUD_NAME"],
-    api_key=CLOUDINARY_STORAGE["API_KEY"],
-    api_secret=CLOUDINARY_STORAGE["API_SECRET"],
-    secure=True,
-)
-
 STORAGES = {
     "default": {
-        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+        "BACKEND": "storages.backends.s3.S3Storage",
+        "OPTIONS": {
+            "bucket_name": AWS_STORAGE_BUCKET_NAME,
+            "region_name": AWS_REGION,
+            "custom_domain": (
+                CLOUDFRONT_DOMAIN.removeprefix("https://").removeprefix("http://")
+                or None
+            ),
+            "querystring_auth": False,
+            "default_acl": None,
+        },
     },
     "staticfiles": {
         "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",

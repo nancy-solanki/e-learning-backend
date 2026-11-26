@@ -5,7 +5,7 @@ from apps.category.service import CategoryService
 
 @pytest.mark.parametrize("value", [None, [], ()])
 def test_missing_thumbnail(value, mocker):
-    upload = mocker.patch("apps.category.service.FileService.upload_file_to_cloud")
+    upload = mocker.patch("apps.category.service.FileService.upload_file_to_s3")
     with pytest.raises(ValueError, match="Thumbnail is required"):
         CategoryService.upload_thumbnail(value)
     upload.assert_not_called()

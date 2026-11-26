@@ -138,7 +138,7 @@ class CourseSerializer(InstructorStatusReadOnlyMixin, serializers.ModelSerialize
         thumbnail = validated_data.get("thumbnail")
         if thumbnail is not None:
             try:
-                validated_data["thumbnail"] = FileService.upload_file_to_cloud(
+                validated_data["thumbnail"] = FileService.upload_file_to_s3(
                     thumbnail, "course"
                 )
             except ValueError as exc:

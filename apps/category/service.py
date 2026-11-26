@@ -27,7 +27,7 @@ class CategoryService:
         file_obj = CategoryService._resolve_thumbnail(thumbnail)
         if not file_obj:
             raise ValueError("Thumbnail is required.")
-        return FileService.upload_file_to_cloud(file_obj, "category")
+        return FileService.upload_file_to_s3(file_obj, "category")
 
     @staticmethod
     def update_category(category, data, thumbnail=None):

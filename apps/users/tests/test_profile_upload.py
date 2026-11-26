@@ -20,20 +20,21 @@ def avatar():
 
 
 def test_upload_persists_url_and_returns_it(auth_client, user, avatar, mocker):
-    cloud = mocker.patch(
-        "apps.common.service.cloudinary.uploader.upload",
-        return_value={
-            "secure_url": "https://example.com/avatar.png",
-        },
+    s3 = mocker.Mock()
+    mocker.patch("apps.common.service.settings.AWS_STORAGE_BUCKET_NAME", "test-bucket")
+    mocker.patch("apps.common.service.settings.AWS_REGION", "us-east-1")
+    mocker.patch(
+        "apps.common.service.settings.CLOUDFRONT_DOMAIN", "https://example.com"
     )
+    mocker.patch("apps.common.service.boto3.client", return_value=s3)
     response = auth_client.put(URL, {"avatar": avatar}, format="multipart")
     assert response.status_code == 200
     user.refresh_from_db()
-    assert user.avatar == "https://example.com/avatar.png"
+    assert user.avatar.startswith("https://example.com/avatars/")
     assert response.data["avatar"] == user.avatar
     assert auth_client.get(URL).data["avatar"] == user.avatar
     assert Files.objects.filter(url=user.avatar).exists()
-    cloud.assert_called_once()
+    s3.put_object.assert_called_once()
 
 
 @pytest.mark.parametrize(
@@ -46,7 +47,7 @@ def test_upload_failure_returns_400_without_profile_changes(
     user.save()
     previous_name = user.first_name
     mocker.patch(
-        "apps.users.serializers.FileService.upload_file_to_cloud",
+        "apps.users.serializers.FileService.upload_file_to_s3",
         side_effect=ValueError(failure),
     )
     response = auth_client.put(
@@ -60,7 +61,7 @@ def test_upload_failure_returns_400_without_profile_changes(
 
 
 def test_invalid_image_never_uploads(auth_client, mocker):
-    upload = mocker.patch("apps.users.serializers.FileService.upload_file_to_cloud")
+    upload = mocker.patch("apps.users.serializers.FileService.upload_file_to_s3")
     invalid = SimpleUploadedFile("bad.png", b"not an image", content_type="image/png")
     response = auth_client.put(URL, {"avatar": invalid}, format="multipart")
     assert response.status_code == 400

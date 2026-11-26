@@ -92,7 +92,6 @@ def create_download_url(key):
 
 def _validate_key_owner(user_id, key):
     if not any(
-        key.startswith(f"{prefix}/{user_id}/")
-        for prefix in ("source", "resources")
+        key.startswith(f"{prefix}/{user_id}/") for prefix in ("source", "resources")
     ):
         raise ValueError("Upload does not belong to the authenticated user.")
