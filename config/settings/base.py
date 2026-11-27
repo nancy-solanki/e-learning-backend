@@ -57,6 +57,8 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3001")
 # ---------------------------------------------------------------------------
 
 DJANGO_APPS = [
+    # Daphne provides ASGI support for runserver, including Channels WebSockets.
+    "daphne",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",

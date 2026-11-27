@@ -48,4 +48,6 @@ class CookieJWTAuthMiddleware:
 def CookieJWTAuthMiddlewareStack(inner):
     from channels.auth import AuthMiddlewareStack
 
-    return CookieJWTAuthMiddleware(AuthMiddlewareStack(inner))
+    # AuthMiddlewareStack initializes scope["user"] from Django sessions.
+    # Apply JWT-cookie auth after it so the access token is not overwritten.
+    return AuthMiddlewareStack(CookieJWTAuthMiddleware(inner))
